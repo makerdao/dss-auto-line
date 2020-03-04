@@ -50,18 +50,20 @@ contract DssAutoLine {
         else revert("DssAutoLine/file-unrecognized-param");
     }
 
-    function run(bytes32 ilk) public {
+    function run(bytes32 ilk) external {
         // Check the ilk ins enabled
-        require(ilks[ilk].on == 1, "DssAutoLine/ilk-not-enabled");
+        Ilk storage i = ilks[ilk];
+
+        require(i.on == 1, "DssAutoLine/ilk-not-enabled");
 
         (uint256 Art, uint rate,, uint256 line,) = vat.ilks(ilk);
         // Calculate collateral debt
         uint debt = mul(Art, rate);
         // Calculate new line based on collateral debt + defensive percentage margin
-        uint lineNew = mul(debt, ilks[ilk].top) / 10 ** 27;
+        uint lineNew = mul(debt, i.top) / 10 ** 27;
 
         // Check the ceiling is decreasing (or being unchaged) with this action or enough time has passed since last increase
-        require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");
+        require(lineNew <= line || now >= add(i.last, i.ttl), "DssAutoLine/no-min-time-passed");
 
         // Set collateral debt ceiling
         vat.file(ilk, "line", lineNew);
@@ -69,6 +71,6 @@ contract DssAutoLine {
         vat.file("Line", add(sub(vat.Line(), line), lineNew));
 
         // Update last if it was an increase in the debt ceiling
-        if (lineNew > line) ilks[ilk].last = now;
+        if (lineNew > line) i.last = now;
     }
 }
