@@ -1,48 +1,60 @@
 pragma solidity ^0.5.12;
 
-import { DssDeployTestBase } from "dss-deploy/DssDeploy.t.base.sol";
+import "ds-test/test.sol";
 
 import "./DssAutoLine.sol";
 
-contract DssAutoLineTest is DssDeployTestBase {
-    DssAutoLine dssAutoLine;
+contract Hevm {
+    function warp(uint256) public;
+}
 
-    function rely(address who, address to) external {
-        address      usr = address(govActions);
-        bytes32      tag;  assembly { tag := extcodehash(usr) }
-        bytes memory fax = abi.encodeWithSignature("rely(address,address)", who, to);
-        uint256      eta = now;
-
-        pause.plot(usr, tag, fax, eta);
-        pause.exec(usr, tag, fax, eta);
+contract MockVat {
+    struct Ilk {
+        uint256 Art;   // Total Normalised Debt     [wad]
+        uint256 rate;  // Accumulated Rates         [ray]
+        uint256 spot;  // Price with Safety Margin  [ray]
+        uint256 line;  // Debt Ceiling              [rad]
+        uint256 dust;  // Urn Debt Floor            [rad]
     }
+    uint256 public Line;
+    mapping (bytes32 => Ilk) public ilks;
+
+    function file(bytes32 what, uint data) external {
+        if (what == "Line") Line = data;
+    }
+
+    function file(bytes32 ilk, bytes32 what, uint data) external {
+        if (what == "line") ilks[ilk].line = data;
+        else if (what == "rate") ilks[ilk].rate = data;
+    }
+
+    function addDebt(bytes32 ilk, uint256 rad) external {
+        ilks[ilk].Art = rad / ilks[ilk].rate;
+    }
+}
+
+contract DssAutoLineTest is DSTest {
+    Hevm hevm;
+    DssAutoLine dssAutoLine;
+    MockVat vat;
 
     function setUp() public {
-        super.setUp();
-        deploy();
-
+        vat = new MockVat();
+        vat.file(bytes32("Line"), 10000 * 10 ** 45);
+        vat.file(bytes32("ETH"), bytes32("line"), 10000 * 10 ** 45);
+        vat.file(bytes32("ETH"), bytes32("rate"), 1 * 10 ** 27);
         dssAutoLine = new DssAutoLine(address(vat));
-        dssAutoLine.rely(address(pause.proxy()));
-        dssAutoLine.deny(address(this));
 
-        this.rely(address(vat), address(dssAutoLine));
+        dssAutoLine.file(bytes32("ETH"), bytes32("ttl"), 3600);
+        dssAutoLine.file(bytes32("ETH"), bytes32("top"), 1.02 * 10 ** 27);
+        dssAutoLine.file(bytes32("ETH"), bytes32("on"), 1);
 
-        this.file(address(dssAutoLine), bytes32("ETH"), bytes32("ttl"), 3600);
-        this.file(address(dssAutoLine), bytes32("ETH"), bytes32("top"), 1.02 * 10 ** 27);
-        this.file(address(dssAutoLine), bytes32("ETH"), bytes32("on"), 1);
-
-        weth.deposit.value(1000 ether)();
-        weth.approve(address(ethJoin), uint(-1));
-        ethJoin.join(address(this), 1000 ether);
-        vat.frob("ETH", address(this), address(this), address(this), 1000 ether, 0);
-    }
-
-    function generateDAI(uint256 amount) public {
-        vat.frob("ETH", address(this), address(this), address(this), 0, int256(amount));
+        hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+        hevm.warp(0);
     }
 
     function testRun() public {
-        generateDAI(10000 ether); // Max debt ceiling amount
+        vat.addDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         (,,, uint256 line,) = vat.ilks("ETH");
         assertEq(line, 10000 * 10 ** 45);
         assertEq(vat.Line(), 10000 * 10 ** 45);
@@ -54,21 +66,21 @@ contract DssAutoLineTest is DssDeployTestBase {
     }
 
     function testFailIlkNotEnabled() public {
-        generateDAI(10000 ether); // Max debt ceiling amount
+        vat.addDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         hevm.warp(3600);
-        this.file(address(dssAutoLine), bytes32("ETH"), bytes32("on"), 0);
+        dssAutoLine.file(bytes32("ETH"), bytes32("on"), 0);
         dssAutoLine.run("ETH");
     }
 
     function testFailRunNotMinTime() public {
-        generateDAI(10000 ether); // Max debt ceiling amount
+        vat.addDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         hevm.warp(3599);
         dssAutoLine.run("ETH");
     }
 
     function testRunNoNeedTime() public {
         // As the debt ceiling will decrease
-        generateDAI(8000 ether); // Max debt ceiling amount
+        vat.addDebt("ETH", 8000 * 10 ** 45);
         (,,, uint256 line,) = vat.ilks("ETH");
         assertEq(line, 10000 * 10 ** 45);
         assertEq(vat.Line(), 10000 * 10 ** 45);
