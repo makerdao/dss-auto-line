@@ -13,7 +13,7 @@ contract DssAutoLine {
     function rely(address usr) external auth { wards[usr] = 1; }
     function deny(address usr) external auth { wards[usr] = 0; }
     modifier auth {
-        require(wards[msg.sender] == 1, "Vat/not-authorized");
+        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
         _;
     }
 
@@ -40,16 +40,14 @@ contract DssAutoLine {
 
     constructor(address vat_) public {
         vat = VatLike(vat_);
+        wards[msg.sender] = 1;
     }
 
-    function set(bytes32 ilk, uint256 ttl, uint256 top) public auth {
-        ilks[ilk].on = 1;
-        ilks[ilk].ttl = ttl;
-        ilks[ilk].top = top;
-    }
-
-    function void(bytes32 ilk) public auth {
-        ilks[ilk].on = 0;
+    function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
+        if (what == "ttl") ilks[ilk].ttl = data;
+        else if (what == "top") ilks[ilk].top = data;
+        else if (what == "on") ilks[ilk].on = data;
+        else revert("DssAutoLine/file-unrecognized-param");
     }
 
     function run(bytes32 ilk) public {
