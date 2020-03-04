@@ -28,11 +28,12 @@ contract DssAutoLine {
         require(y == 0 || (z = x * y) / y == x);
     }
 
+    // Maybe there's a better way to pack this
     struct Ilk {
-        uint256 on;   // Check if ilk is enabled
-        uint256 ttl;  // Min time to pass before a new increase
-        uint256 top;  // Defensive percentage margin to set the ceiling over actual ilk debt
-        uint256 last; // Last time the ceiling was increased compared to its previous value
+        uint128 top;  // Defensive percentage margin to set the ceiling over actual ilk debt
+        uint32 last; // Last time the ceiling was increased compared to its previous value
+        uint32 ttl;  // Min time to pass before a new increase
+        uint8 on;   // Check if ilk is enabled
     }
 
     VatLike                     public vat;
@@ -44,9 +45,9 @@ contract DssAutoLine {
     }
 
     function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
-        if (what == "ttl") ilks[ilk].ttl = data;
-        else if (what == "top") ilks[ilk].top = data;
-        else if (what == "on") ilks[ilk].on = data;
+        if (what == "ttl") ilks[ilk].ttl = uint32(data);
+        else if (what == "top") ilks[ilk].top = uint128(data);
+        else if (what == "on") ilks[ilk].on = uint8(data);
         else revert("DssAutoLine/file-unrecognized-param");
     }
 
@@ -58,9 +59,9 @@ contract DssAutoLine {
 
         (uint256 Art, uint rate,, uint256 line,) = vat.ilks(ilk);
         // Calculate collateral debt
-        uint debt = mul(Art, rate);
+        uint256 debt = mul(Art, rate);
         // Calculate new line based on collateral debt + defensive percentage margin
-        uint lineNew = mul(debt, i.top) / 10 ** 27;
+        uint256 lineNew = mul(debt, i.top) / 10 ** 27;
 
         // Check the ceiling is decreasing (or being unchaged) with this action or enough time has passed since last increase
         require(lineNew <= line || now >= add(i.last, i.ttl), "DssAutoLine/no-min-time-passed");
@@ -71,6 +72,6 @@ contract DssAutoLine {
         vat.file("Line", add(sub(vat.Line(), line), lineNew));
 
         // Update last if it was an increase in the debt ceiling
-        if (lineNew > line) i.last = now;
+        if (lineNew > line) i.last = uint32(now);
     }
 }
