@@ -28,7 +28,7 @@ contract MockVat {
         else if (what == "rate") ilks[ilk].rate = data;
     }
 
-    function addDebt(bytes32 ilk, uint256 rad) external {
+    function setDebt(bytes32 ilk, uint256 rad) external {
         ilks[ilk].Art = rad / ilks[ilk].rate;
     }
 }
@@ -45,8 +45,9 @@ contract DssAutoLineTest is DSTest {
         vat.file(bytes32("ETH"), bytes32("rate"), 1 * 10 ** 27);
         dssAutoLine = new DssAutoLine(address(vat));
 
+        dssAutoLine.file(bytes32("ETH"), bytes32("line"), 10800 * 10 ** 45);
         dssAutoLine.file(bytes32("ETH"), bytes32("ttl"), 3600);
-        dssAutoLine.file(bytes32("ETH"), bytes32("top"), 1.02 * 10 ** 27);
+        dssAutoLine.file(bytes32("ETH"), bytes32("top"), 1.05 * 10 ** 27);
         dssAutoLine.file(bytes32("ETH"), bytes32("on"), 1);
 
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
@@ -54,39 +55,45 @@ contract DssAutoLineTest is DSTest {
     }
 
     function testRun() public {
-        vat.addDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
+        vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         (,,, uint256 line,) = vat.ilks("ETH");
         assertEq(line, 10000 * 10 ** 45);
         assertEq(vat.Line(), 10000 * 10 ** 45);
         hevm.warp(3600);
         dssAutoLine.run("ETH");
         (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 10000 * 10 ** 45 * 1.02);
-        assertEq(vat.Line(), 10000 * 10 ** 45 * 1.02);
+        assertEq(line, 10000 * 10 ** 45 * 1.05);
+        assertEq(vat.Line(), 10000 * 10 ** 45 * 1.05);
+        vat.setDebt("ETH", 10500 * 10 ** 45); // New max debt ceiling amount
+        hevm.warp(7200);
+        dssAutoLine.run("ETH");
+        (,,, line,) = vat.ilks("ETH");
+        assertEq(line, 10800 * 10 ** 45); // < 105000 * 10 ** 45 * 1.05 (due max line)
+        assertEq(vat.Line(), 10800 * 10 ** 45);
     }
 
     function testFailIlkNotEnabled() public {
-        vat.addDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
+        vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         hevm.warp(3600);
         dssAutoLine.file(bytes32("ETH"), bytes32("on"), 0);
         dssAutoLine.run("ETH");
     }
 
     function testFailRunNotMinTime() public {
-        vat.addDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
+        vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         hevm.warp(3599);
         dssAutoLine.run("ETH");
     }
 
     function testRunNoNeedTime() public {
         // As the debt ceiling will decrease
-        vat.addDebt("ETH", 8000 * 10 ** 45);
+        vat.setDebt("ETH", 8000 * 10 ** 45);
         (,,, uint256 line,) = vat.ilks("ETH");
         assertEq(line, 10000 * 10 ** 45);
         assertEq(vat.Line(), 10000 * 10 ** 45);
         dssAutoLine.run("ETH");
         (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 8000 * 10 ** 45 * 1.02);
-        assertEq(vat.Line(), 8000 * 10 ** 45 * 1.02);
+        assertEq(line, 8000 * 10 ** 45 * 1.05);
+        assertEq(vat.Line(), 8000 * 10 ** 45 * 1.05);
     }
 }
