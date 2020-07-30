@@ -1,10 +1,10 @@
-pragma solidity ^0.5.12;
+pragma solidity >=0.5.12;
 
-contract VatLike {
-    function ilks(bytes32) public view returns (uint256, uint256, uint256, uint256, uint256);
-    function Line() public view returns (uint256);
-    function file(bytes32, uint256) public;
-    function file(bytes32, bytes32, uint256) public;
+interface VatLike {
+    function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
+    function Line() external view returns (uint256);
+    function file(bytes32, uint256) external;
+    function file(bytes32, bytes32, uint256) external;
 }
 
 contract DssAutoLine {
