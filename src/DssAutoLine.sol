@@ -35,7 +35,7 @@ contract DssAutoLine {
         uint256 line; // Max ceiling possible
         uint256 on;   // Check if ilk is enabled
         uint256 ttl;  // Min time to pass before a new increase
-        uint256 top;  // Defensive percentage margin to set the ceiling over actual ilk debt
+        uint256 top;  // Value to add to the current debt for setting the ceiling
         uint256 last; // Last time the ceiling was increased compared to its previous value
     }
 
@@ -63,11 +63,8 @@ contract DssAutoLine {
         // Calculate collateral debt
         uint debt = mul(Art, rate);
 
-        // Calculate new line based on the minimum between the maximum line and actual collateral debt + defensive percentage margin
-        uint lineNew = min(
-            mul(debt, ilks[ilk].top) / 10 ** 27,
-            ilks[ilk].line
-        );
+        // Calculate new line based on the minimum between the maximum line and actual collateral debt + incremental value
+        uint lineNew = min(add(debt, ilks[ilk].top), ilks[ilk].line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
         require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");

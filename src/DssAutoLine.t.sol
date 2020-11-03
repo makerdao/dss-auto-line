@@ -45,9 +45,9 @@ contract DssAutoLineTest is DSTest {
         vat.file(bytes32("ETH"), bytes32("rate"), 1 * 10 ** 27);
         dssAutoLine = new DssAutoLine(address(vat));
 
-        dssAutoLine.file(bytes32("ETH"), bytes32("line"), 10800 * 10 ** 45);
+        dssAutoLine.file(bytes32("ETH"), bytes32("line"), 12600 * 10 ** 45);
         dssAutoLine.file(bytes32("ETH"), bytes32("ttl"), 3600);
-        dssAutoLine.file(bytes32("ETH"), bytes32("top"), 1.05 * 10 ** 27);
+        dssAutoLine.file(bytes32("ETH"), bytes32("top"), 2500 * 10 ** 45);
         dssAutoLine.file(bytes32("ETH"), bytes32("on"), 1);
 
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
@@ -62,14 +62,14 @@ contract DssAutoLineTest is DSTest {
         hevm.warp(3600);
         dssAutoLine.run("ETH");
         (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 10000 * 10 ** 45 * 1.05);
-        assertEq(vat.Line(), 10000 * 10 ** 45 * 1.05);
-        vat.setDebt("ETH", 10500 * 10 ** 45); // New max debt ceiling amount
+        assertEq(line, 12500 * 10 ** 45);
+        assertEq(vat.Line(), 12500 * 10 ** 45);
+        vat.setDebt("ETH", 10200 * 10 ** 45); // New max debt ceiling amount
         hevm.warp(7200);
         dssAutoLine.run("ETH");
         (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 10800 * 10 ** 45); // < 105000 * 10 ** 45 * 1.05 (due max line)
-        assertEq(vat.Line(), 10800 * 10 ** 45);
+        assertEq(line, 12600 * 10 ** 45); // < 127000 * 10 ** 45 (due max line)
+        assertEq(vat.Line(), 12600 * 10 ** 45);
     }
 
     function testFailIlkNotEnabled() public {
@@ -87,13 +87,13 @@ contract DssAutoLineTest is DSTest {
 
     function testRunNoNeedTime() public {
         // As the debt ceiling will decrease
-        vat.setDebt("ETH", 8000 * 10 ** 45);
+        vat.setDebt("ETH", 7000 * 10 ** 45);
         (,,, uint256 line,) = vat.ilks("ETH");
         assertEq(line, 10000 * 10 ** 45);
         assertEq(vat.Line(), 10000 * 10 ** 45);
         dssAutoLine.run("ETH");
         (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 8000 * 10 ** 45 * 1.05);
-        assertEq(vat.Line(), 8000 * 10 ** 45 * 1.05);
+        assertEq(line, 9500 * 10 ** 45);
+        assertEq(vat.Line(), 9500 * 10 ** 45);
     }
 }
