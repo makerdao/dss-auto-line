@@ -1,4 +1,4 @@
-pragma solidity >=0.5.12;
+pragma solidity ^0.6.7;
 
 import "ds-test/test.sol";
 
@@ -19,11 +19,11 @@ contract MockVat {
     uint256 public Line;
     mapping (bytes32 => Ilk) public ilks;
 
-    function file(bytes32 what, uint data) external {
+    function file(bytes32 what, uint256 data) external {
         if (what == "Line") Line = data;
     }
 
-    function file(bytes32 ilk, bytes32 what, uint data) external {
+    function file(bytes32 ilk, bytes32 what, uint256 data) external {
         if (what == "line") ilks[ilk].line = data;
         else if (what == "rate") ilks[ilk].rate = data;
     }

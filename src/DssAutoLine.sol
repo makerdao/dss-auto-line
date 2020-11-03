@@ -1,4 +1,4 @@
-pragma solidity >=0.5.12;
+pragma solidity ^0.6.7;
 
 interface VatLike {
     function ilks(bytes32) external view returns (uint256, uint256, uint256, uint256, uint256);
@@ -9,7 +9,7 @@ interface VatLike {
 
 contract DssAutoLine {
     // --- Auth ---
-    mapping (address => uint) public wards;
+    mapping (address => uint256) public wards;
     function rely(address usr) external auth { wards[usr] = 1; }
     function deny(address usr) external auth { wards[usr] = 0; }
     modifier auth {
@@ -39,8 +39,8 @@ contract DssAutoLine {
         uint256 last; // Last time the ceiling was increased compared to its previous value
     }
 
-    VatLike                     public vat;
-    mapping (bytes32 => Ilk)    public ilks;
+    VatLike                     public immutable vat;
+    mapping (bytes32 => Ilk)    public           ilks;
 
     constructor(address vat_) public {
         vat = VatLike(vat_);
@@ -59,12 +59,12 @@ contract DssAutoLine {
         // Check the ilk ins enabled
         require(ilks[ilk].on == 1, "DssAutoLine/ilk-not-enabled");
 
-        (uint256 Art, uint rate,, uint256 line,) = vat.ilks(ilk);
+        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(ilk);
         // Calculate collateral debt
-        uint debt = mul(Art, rate);
+        uint256 debt = mul(Art, rate);
 
         // Calculate new line based on the minimum between the maximum line and actual collateral debt + incremental value
-        uint lineNew = min(add(debt, ilks[ilk].top), ilks[ilk].line);
+        uint256 lineNew = min(add(debt, ilks[ilk].top), ilks[ilk].line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
         require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");
@@ -74,7 +74,7 @@ contract DssAutoLine {
         // Set general debt ceiling
         vat.file("Line", add(sub(vat.Line(), line), lineNew));
 
-        // Update last if it was an increase in the debt ceiling
+        // Update last if it was an increment in the debt ceiling
         if (lineNew > line) ilks[ilk].last = now;
     }
 }
