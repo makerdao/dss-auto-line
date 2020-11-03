@@ -54,19 +54,19 @@ contract DssAutoLineTest is DSTest {
         hevm.warp(0);
     }
 
-    function testRun() public {
+    function testExec() public {
         vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         (,,, uint256 line,) = vat.ilks("ETH");
         assertEq(line, 10000 * 10 ** 45);
         assertEq(vat.Line(), 10000 * 10 ** 45);
         hevm.warp(3600);
-        dssAutoLine.run("ETH");
+        dssAutoLine.exec("ETH");
         (,,, line,) = vat.ilks("ETH");
         assertEq(line, 12500 * 10 ** 45);
         assertEq(vat.Line(), 12500 * 10 ** 45);
         vat.setDebt("ETH", 10200 * 10 ** 45); // New max debt ceiling amount
         hevm.warp(7200);
-        dssAutoLine.run("ETH");
+        dssAutoLine.exec("ETH");
         (,,, line,) = vat.ilks("ETH");
         assertEq(line, 12600 * 10 ** 45); // < 127000 * 10 ** 45 (due max line)
         assertEq(vat.Line(), 12600 * 10 ** 45);
@@ -76,22 +76,22 @@ contract DssAutoLineTest is DSTest {
         vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         hevm.warp(3600);
         dssAutoLine.file(bytes32("ETH"), bytes32("on"), 0);
-        dssAutoLine.run("ETH");
+        dssAutoLine.exec("ETH");
     }
 
-    function testFailRunNotMinTime() public {
+    function testFailExecNotMinTime() public {
         vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
         hevm.warp(3599);
-        dssAutoLine.run("ETH");
+        dssAutoLine.exec("ETH");
     }
 
-    function testRunNoNeedTime() public {
+    function testExecNoNeedTime() public {
         // As the debt ceiling will decrease
         vat.setDebt("ETH", 7000 * 10 ** 45);
         (,,, uint256 line,) = vat.ilks("ETH");
         assertEq(line, 10000 * 10 ** 45);
         assertEq(vat.Line(), 10000 * 10 ** 45);
-        dssAutoLine.run("ETH");
+        dssAutoLine.exec("ETH");
         (,,, line,) = vat.ilks("ETH");
         assertEq(line, 9500 * 10 ** 45);
         assertEq(vat.Line(), 9500 * 10 ** 45);

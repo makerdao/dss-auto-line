@@ -8,28 +8,9 @@ interface VatLike {
 }
 
 contract DssAutoLine {
-    // --- Auth ---
-    mapping (address => uint256) public wards;
-    function rely(address usr) external auth { wards[usr] = 1; }
-    function deny(address usr) external auth { wards[usr] = 0; }
-    modifier auth {
-        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
-        _;
-    }
-
-    // --- Math ---
-    function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x);
-    }
-    function sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x - y) <= x);
-    }
-    function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require(y == 0 || (z = x * y) / y == x);
-    }
-    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        return x <= y ? x : y;
-    }
+    mapping (address => uint256)    public  wards;
+    VatLike                         public  immutable   vat;
+    mapping (bytes32 => Ilk)        public              ilks;
 
     struct Ilk {
         uint256 line; // Max ceiling possible
@@ -39,12 +20,46 @@ contract DssAutoLine {
         uint256 last; // Last time the ceiling was increased compared to its previous value
     }
 
-    VatLike                     public immutable vat;
-    mapping (bytes32 => Ilk)    public           ilks;
+    event Rely(address indexed usr);
+    event Deny(address indexed usr);
+    event File(bytes32 indexed ilk, bytes32 indexed what, uint256 data);
+    event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
+
+    function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x + y) >= x);
+    }
+
+    function sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x - y) <= x);
+    }
+
+    function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require(y == 0 || (z = x * y) / y == x);
+    }
+
+    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        return x <= y ? x : y;
+    }
 
     constructor(address vat_) public {
         vat = VatLike(vat_);
         wards[msg.sender] = 1;
+        emit Rely(msg.sender);
+    }
+
+    modifier auth {
+        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
+        _;
+    }
+
+    function rely(address usr) external auth {
+        wards[usr] = 1;
+        emit Rely(usr);
+    }
+
+    function deny(address usr) external auth {
+        wards[usr] = 0;
+        emit Deny(usr);
     }
 
     function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
@@ -53,9 +68,10 @@ contract DssAutoLine {
         else if (what == "top") ilks[ilk].top = data;
         else if (what == "on") ilks[ilk].on = data;
         else revert("DssAutoLine/file-unrecognized-param");
+        emit File(ilk, what, data);
     }
 
-    function run(bytes32 ilk) public {
+    function exec(bytes32 ilk) public {
         // Check the ilk ins enabled
         require(ilks[ilk].on == 1, "DssAutoLine/ilk-not-enabled");
 
@@ -76,5 +92,7 @@ contract DssAutoLine {
 
         // Update last if it was an increment in the debt ceiling
         if (lineNew > line) ilks[ilk].last = now;
+
+        emit Exec(ilk, line, lineNew);
     }
 }
