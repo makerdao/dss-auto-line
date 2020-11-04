@@ -47,7 +47,7 @@ contract DssAutoLineTest is DSTest {
 
         dssAutoLine.file(bytes32("ETH"), bytes32("line"), 12600 * 10 ** 45);
         dssAutoLine.file(bytes32("ETH"), bytes32("ttl"), 3600);
-        dssAutoLine.file(bytes32("ETH"), bytes32("top"), 2500 * 10 ** 45);
+        dssAutoLine.file(bytes32("ETH"), bytes32("gap"), 2500 * 10 ** 45);
         dssAutoLine.file(bytes32("ETH"), bytes32("on"), 1);
 
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);

@@ -16,7 +16,7 @@ contract DssAutoLine {
         uint256 line; // Max ceiling possible
         uint256 on;   // Check if ilk is enabled
         uint256 ttl;  // Min time to pass before a new increase
-        uint256 top;  // Value to add to the current debt for setting the ceiling
+        uint256 gap;  // Max Value between current debt and line to be set
         uint256 last; // Last time the ceiling was increased compared to its previous value
     }
 
@@ -65,7 +65,7 @@ contract DssAutoLine {
     function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
         if (what == "line") ilks[ilk].line = data;
         else if (what == "ttl") ilks[ilk].ttl = data;
-        else if (what == "top") ilks[ilk].top = data;
+        else if (what == "gap") ilks[ilk].gap = data;
         else if (what == "on") ilks[ilk].on = data;
         else revert("DssAutoLine/file-unrecognized-param");
         emit File(ilk, what, data);
@@ -79,8 +79,8 @@ contract DssAutoLine {
         // Calculate collateral debt
         uint256 debt = mul(Art, rate);
 
-        // Calculate new line based on the minimum between the maximum line and actual collateral debt + incremental value
-        uint256 lineNew = min(add(debt, ilks[ilk].top), ilks[ilk].line);
+        // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
+        uint256 lineNew = min(add(debt, ilks[ilk].gap), ilks[ilk].line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
         require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");
