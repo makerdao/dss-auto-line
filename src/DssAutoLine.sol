@@ -59,8 +59,15 @@ contract DssAutoLine {
         emit File(ilk, what, data);
     }
     
-    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
-    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
+    function rely(address usr) external auth {
+        wards[usr] = 1;
+        emit Rely(usr);
+    }
+
+    function deny(address usr) external auth {
+        wards[usr] = 0;
+        emit Deny(usr);
+    }
 
     modifier auth {
         require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
