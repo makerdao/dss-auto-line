@@ -8,60 +8,56 @@ interface VatLike {
 }
 
 contract DssAutoLine {
-    mapping (address => uint256)    public  wards;
-    VatLike                         public  immutable   vat;
-    mapping (bytes32 => Ilk)        public              ilks;
-
-    struct Ilk {
-        uint256 line; // Max ceiling possible
-        uint256 on;   // Check if ilk is enabled
-        uint256 ttl;  // Min time to pass before a new increase
-        uint256 gap;  // Max Value between current debt and line to be set
-        uint256 last; // Last time the ceiling was increased compared to its previous value
+    /*** Auth ***/
+    mapping (address => uint256) public wards;
+    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
+    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
+    modifier auth {
+        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
+        _;
     }
 
+    /*** Data ***/
+    struct Ilk {
+        uint256 line; // Max ceiling possible                                               [wad]
+        uint256 on;   // Check if ilk is enabled
+        uint256 ttl;  // Min time to pass before a new increase                             [rad]
+        uint256 gap;  // Max Value between current debt and line to be set                  [rad]
+        uint256 last; // Last time the ceiling was increased compared to its previous value [seconds]
+    }
+
+    mapping (bytes32 => Ilk) public ilks;
+
+    VatLike immutable public vat;
+
+    /*** Events ***/
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed ilk, bytes32 indexed what, uint256 data);
     event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
 
-    function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x);
-    }
-
-    function sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x - y) <= x);
-    }
-
-    function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require(y == 0 || (z = x * y) / y == x);
-    }
-
-    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        return x <= y ? x : y;
-    }
-
+    /*** Init ***/
     constructor(address vat_) public {
         vat = VatLike(vat_);
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
 
-    modifier auth {
-        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
-        _;
+    /*** Math ***/
+    function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x + y) >= x);
+    }
+    function sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x - y) <= x);
+    }
+    function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require(y == 0 || (z = x * y) / y == x);
+    }
+    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        return x <= y ? x : y;
     }
 
-    function rely(address usr) external auth {
-        wards[usr] = 1;
-        emit Rely(usr);
-    }
-
-    function deny(address usr) external auth {
-        wards[usr] = 0;
-        emit Deny(usr);
-    }
-
+    /*** Administration ***/
     function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
         if (what == "line") ilks[ilk].line = data;
         else if (what == "ttl") ilks[ilk].ttl = data;
@@ -71,8 +67,11 @@ contract DssAutoLine {
         emit File(ilk, what, data);
     }
 
+    event Debug(uint);
+
+    /*** Auto-Line Update ***/
     function exec(bytes32 ilk) public {
-        // Check the ilk ins enabled
+        // Check the ilk is enabled
         require(ilks[ilk].on == 1, "DssAutoLine/ilk-not-enabled");
 
         (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(ilk);
@@ -80,7 +79,12 @@ contract DssAutoLine {
         uint256 debt = mul(Art, rate);
 
         // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
+        emit Debug(debt);
+        emit Debug(add(debt, ilks[ilk].gap));
+        emit Debug(ilks[ilk].line);
         uint256 lineNew = min(add(debt, ilks[ilk].gap), ilks[ilk].line);
+        emit Debug(lineNew);
+        emit Debug(line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
         require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");
