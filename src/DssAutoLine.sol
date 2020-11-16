@@ -67,8 +67,6 @@ contract DssAutoLine {
         emit File(ilk, what, data);
     }
 
-    event Debug(uint);
-
     /*** Auto-Line Update ***/
     function exec(bytes32 ilk) public {
         // Check the ilk is enabled
@@ -79,12 +77,7 @@ contract DssAutoLine {
         uint256 debt = mul(Art, rate);
 
         // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
-        emit Debug(debt);
-        emit Debug(add(debt, ilks[ilk].gap));
-        emit Debug(ilks[ilk].line);
         uint256 lineNew = min(add(debt, ilks[ilk].gap), ilks[ilk].line);
-        emit Debug(lineNew);
-        emit Debug(line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
         require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");
