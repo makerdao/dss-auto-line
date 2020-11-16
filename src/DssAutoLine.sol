@@ -8,15 +8,6 @@ interface VatLike {
 }
 
 contract DssAutoLine {
-    /*** Auth ***/
-    mapping (address => uint256) public wards;
-    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
-    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
-    modifier auth {
-        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
-        _;
-    }
-
     /*** Data ***/
     struct Ilk {
         uint256 line; // Max ceiling possible                                               [wad]
@@ -26,7 +17,8 @@ contract DssAutoLine {
         uint256 last; // Last time the ceiling was increased compared to its previous value [seconds]
     }
 
-    mapping (bytes32 => Ilk) public ilks;
+    mapping (bytes32 => Ilk)     public ilks;
+    mapping (address => uint256) public wards;
 
     VatLike immutable public vat;
 
@@ -65,6 +57,14 @@ contract DssAutoLine {
         else if (what == "on") ilks[ilk].on = data;
         else revert("DssAutoLine/file-unrecognized-param");
         emit File(ilk, what, data);
+    }
+    
+    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr); }
+    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
+
+    modifier auth {
+        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
+        _;
     }
 
     /*** Auto-Line Update ***/
