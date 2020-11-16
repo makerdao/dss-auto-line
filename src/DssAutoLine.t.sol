@@ -38,62 +38,163 @@ contract DssAutoLineTest is DSTest {
     DssAutoLine dssAutoLine;
     MockVat vat;
 
+    uint256 constant WAD = 10 ** 18;
+    uint256 constant RAY = 10 ** 27;
+    uint256 constant RAD = 10 ** 45;
+
+    bytes32 constant ilk = "gold";
+
     function setUp() public {
         vat = new MockVat();
-        vat.file(bytes32("Line"), 10000 * 10 ** 45);
-        vat.file(bytes32("ETH"), bytes32("line"), 10000 * 10 ** 45);
-        vat.file(bytes32("ETH"), bytes32("rate"), 1 * 10 ** 27);
+        vat.file("Line", 10000 * RAD);
+        vat.file(ilk, "line", 10000 * RAD);
+        vat.file(ilk, "rate", 1 * RAY);
         dssAutoLine = new DssAutoLine(address(vat));
 
-        dssAutoLine.file(bytes32("ETH"), bytes32("line"), 12600 * 10 ** 45);
-        dssAutoLine.file(bytes32("ETH"), bytes32("ttl"), 3600);
-        dssAutoLine.file(bytes32("ETH"), bytes32("gap"), 2500 * 10 ** 45);
-        dssAutoLine.file(bytes32("ETH"), bytes32("on"), 1);
+        dssAutoLine.file(ilk, "line", 12600 * RAD);
+        dssAutoLine.file(ilk, "ttl", 3600);
+        dssAutoLine.file(ilk, "gap", 2500 * RAD);
+        dssAutoLine.file(ilk, "on", 1);
 
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         hevm.warp(0);
     }
 
-    function testExec() public {
-        vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
-        (,,, uint256 line,) = vat.ilks("ETH");
-        assertEq(line, 10000 * 10 ** 45);
-        assertEq(vat.Line(), 10000 * 10 ** 45);
+    function try_exec(bytes32 _ilk) internal returns (bool ok) {
+        string memory sig = "exec(bytes32)";
+        (ok,) = address(dssAutoLine).call(abi.encodeWithSignature(sig, _ilk));
+    }
+
+    function test_exec() public {
+        vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
+        (uint256 Art,,, uint256 line,) = vat.ilks(ilk);
+        assertEq(Art,  10000 * WAD);
+        assertEq(line, 10000 * RAD);
+        assertEq(vat.Line(), 10000 * RAD);
+
         hevm.warp(3600);
-        dssAutoLine.exec("ETH");
-        (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 12500 * 10 ** 45);
-        assertEq(vat.Line(), 12500 * 10 ** 45);
-        vat.setDebt("ETH", 10200 * 10 ** 45); // New max debt ceiling amount
+
+        dssAutoLine.exec(ilk);
+        (,,, line,) = vat.ilks(ilk);
+        assertEq(line, 12500 * RAD);
+        assertEq(vat.Line(), 12500 * RAD);
+        (,,,, uint256 last) = dssAutoLine.ilks(ilk);
+        assertEq(last, 3600);
+        vat.setDebt(ilk, 10200 * RAD); // New max debt ceiling amount
+
         hevm.warp(7200);
-        dssAutoLine.exec("ETH");
-        (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 12600 * 10 ** 45); // < 127000 * 10 ** 45 (due max line)
-        assertEq(vat.Line(), 12600 * 10 ** 45);
+
+        dssAutoLine.exec(ilk);
+        (,,, line,) = vat.ilks(ilk);
+        assertEq(line, 12600 * RAD); // < 127000 * RAD (due max line: 10200 + gap)
+        assertEq(vat.Line(), 12600 * RAD);
+        (,,,, last) = dssAutoLine.ilks(ilk);
+        assertEq(last, 7200);
     }
 
-    function testFailIlkNotEnabled() public {
-        vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
+    function test_exec_multiple_ilks() public {
+        vat.file("gold",         "line", 5000 * RAD);
+        dssAutoLine.file("gold", "line", 7600 * RAD);
+
+        vat.file("silver", "line", 5000 * RAD);
+        vat.file("silver", "rate", 1 * RAY);
+
+        dssAutoLine.file("silver", "line", 7600 * RAD);
+        dssAutoLine.file("silver", "ttl", 7200);       // Different than gold
+        dssAutoLine.file("silver", "gap", 1000 * RAD); // Different than gold
+        dssAutoLine.file("silver", "on", 1);
+
+        vat.setDebt("gold", 5000 * RAD); // Max gold debt ceiling amount
+        (uint256 goldArt,,, uint256 goldLine,) = vat.ilks("gold");
+        assertEq(goldArt,  5000 * WAD);
+        assertEq(goldLine, 5000 * RAD);
+        assertEq(vat.Line(), 10000 * RAD);
+
+        vat.setDebt("silver", 5000 * RAD); // Max silver debt ceiling amount
+        (uint256 silverArt,,, uint256 silverLine,) = vat.ilks("silver");
+        assertEq(silverArt,  5000 * WAD);
+        assertEq(silverLine, 5000 * RAD);
+        assertEq(vat.Line(), 10000 * RAD);
+
+        assertTrue(!try_exec("gold"));
+        assertTrue(!try_exec("silver"));
         hevm.warp(3600);
-        dssAutoLine.file(bytes32("ETH"), bytes32("on"), 0);
-        dssAutoLine.exec("ETH");
+        assertTrue( try_exec("gold"));
+        assertTrue(!try_exec("silver"));
+
+        (,,, goldLine,) = vat.ilks("gold");
+        assertEq(goldLine, 7500 * RAD);
+        assertEq(vat.Line(), 12500 * RAD);
+        (,,,, uint256 goldLast) = dssAutoLine.ilks("gold");
+        assertEq(goldLast, 3600);
+
+        assertTrue(!try_exec("silver")); // Don't need to check gold since no debt increase
+        hevm.warp(7200);
+        assertTrue( try_exec("gold"));   // Gold line does not increase
+        assertTrue( try_exec("silver")); // Silver line increases
+
+        (,,, goldLine,) = vat.ilks("gold");
+        assertEq(goldLine, 7500 * RAD);
+        (,,, silverLine,) = vat.ilks("silver");
+        assertEq(silverLine, 6000 * RAD);
+        assertEq(vat.Line(), 13500 * RAD);
+        assertTrue(vat.Line() == goldLine + silverLine);
+    
+        (,,,, goldLast) = dssAutoLine.ilks("gold");
+        assertEq(goldLast, 3600);
+        (,,,, uint256 silverLast) = dssAutoLine.ilks("silver");
+        assertEq(silverLast, 7200);
+
+        vat.setDebt("gold",   7500 * RAD); // Will use max line
+        vat.setDebt("silver", 6000 * RAD); // Will use `gap`
+
+        hevm.warp(14400); // Both will be able to increase
+        assertTrue(try_exec("gold"));
+        assertTrue(try_exec("silver"));
+
+        (,,, goldLine,) = vat.ilks("gold");
+        assertEq(goldLine, 7600 * RAD);
+        (,,, silverLine,) = vat.ilks("silver");
+        assertEq(silverLine, 7000 * RAD);
+        assertEq(vat.Line(), 14600 * RAD);
+        assertTrue(vat.Line() == goldLine + silverLine);
+    
+        (,,,, goldLast) = dssAutoLine.ilks("gold");
+        assertEq(goldLast, 14400);
+        (,,,, silverLast) = dssAutoLine.ilks("silver");
+        assertEq(silverLast, 14400);
     }
 
-    function testFailExecNotMinTime() public {
-        vat.setDebt("ETH", 10000 * 10 ** 45); // Max debt ceiling amount
+    function test_ilk_not_enabled() public {
+        vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
+        hevm.warp(3600);
+        
+        assertTrue( try_exec(ilk));
+        dssAutoLine.file(ilk, "on", 0);
+        assertTrue(!try_exec(ilk));
+    }
+
+    function test_exec_not_enough_time_passed() public {
+        vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         hevm.warp(3599);
-        dssAutoLine.exec("ETH");
+        assertTrue(!try_exec(ilk));
+        hevm.warp(3600);
+        assertTrue( try_exec(ilk));
     }
 
-    function testExecNoNeedTime() public {
+    function test_exec_line_decrease_under_min_time() public {
         // As the debt ceiling will decrease
-        vat.setDebt("ETH", 7000 * 10 ** 45);
-        (,,, uint256 line,) = vat.ilks("ETH");
-        assertEq(line, 10000 * 10 ** 45);
-        assertEq(vat.Line(), 10000 * 10 ** 45);
-        dssAutoLine.exec("ETH");
-        (,,, line,) = vat.ilks("ETH");
-        assertEq(line, 9500 * 10 ** 45);
-        assertEq(vat.Line(), 9500 * 10 ** 45);
+        vat.setDebt(ilk, 10000 * RAD);
+        (,,, uint256 line,) = vat.ilks(ilk);
+        assertEq(line, 10000 * RAD);
+        assertEq(vat.Line(), 10000 * RAD);
+
+        assertTrue(!try_exec(ilk));
+        vat.setDebt(ilk, 7000 * RAD); // debt + gap = 7000 + 2500 = 9500 < 10000
+        assertTrue( try_exec(ilk));
+
+        (,,, line,) = vat.ilks(ilk);
+        assertEq(line, 9500 * RAD);
+        assertEq(vat.Line(), 9500 * RAD);
     }
 }
