@@ -65,6 +65,16 @@ contract DssAutoLineTest is DSTest {
         (ok,) = address(dssAutoLine).call(abi.encodeWithSignature(sig, _ilk));
     }
 
+    /*
+    struct Ilk {
+        uint256  line;  // Max ceiling possible                                               [rad]
+        uint8      on;  // Check if ilk is enabled                                            [1 if on]
+        uint32    ttl;  // Min time to pass before a new increase                             [seconds]
+        uint32   last;  // Last time the ceiling was increased compared to its previous value [seconds]
+        uint256   gap;  // Max Value between current debt and line to be set                  [rad]
+    }
+    */
+
     function test_exec() public {
         vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         (uint256 Art,,, uint256 line,) = vat.ilks(ilk);
@@ -75,20 +85,20 @@ contract DssAutoLineTest is DSTest {
         hevm.warp(3600);
 
         dssAutoLine.exec(ilk);
-        (,,, line,) = vat.ilks(ilk);
+        (,,,line,) = vat.ilks(ilk);
         assertEq(line, 12500 * RAD);
         assertEq(vat.Line(), 12500 * RAD);
-        (,,,, uint256 last) = dssAutoLine.ilks(ilk);
+        (,,uint256 last,,) = dssAutoLine.ilks(ilk);
         assertEq(last, 3600);
         vat.setDebt(ilk, 10200 * RAD); // New max debt ceiling amount
 
         hevm.warp(7200);
 
         dssAutoLine.exec(ilk);
-        (,,, line,) = vat.ilks(ilk);
+        (,,,line,) = vat.ilks(ilk);
         assertEq(line, 12600 * RAD); // < 127000 * RAD (due max line: 10200 + gap)
         assertEq(vat.Line(), 12600 * RAD);
-        (,,,, last) = dssAutoLine.ilks(ilk);
+        (,,last,,) = dssAutoLine.ilks(ilk);
         assertEq(last, 7200);
     }
 
@@ -125,7 +135,7 @@ contract DssAutoLineTest is DSTest {
         (,,, goldLine,) = vat.ilks("gold");
         assertEq(goldLine, 7500 * RAD);
         assertEq(vat.Line(), 12500 * RAD);
-        (,,,, uint256 goldLast) = dssAutoLine.ilks("gold");
+        (,,uint256 goldLast,,) = dssAutoLine.ilks("gold");
         assertEq(goldLast, 3600);
 
         assertTrue(!try_exec("silver")); // Don't need to check gold since no debt increase
@@ -139,10 +149,10 @@ contract DssAutoLineTest is DSTest {
         assertEq(silverLine, 6000 * RAD);
         assertEq(vat.Line(), 13500 * RAD);
         assertTrue(vat.Line() == goldLine + silverLine);
-    
-        (,,,, goldLast) = dssAutoLine.ilks("gold");
+
+        (,,goldLast,,) = dssAutoLine.ilks("gold");
         assertEq(goldLast, 3600);
-        (,,,, uint256 silverLast) = dssAutoLine.ilks("silver");
+        (,,uint256 silverLast,,) = dssAutoLine.ilks("silver");
         assertEq(silverLast, 7200);
 
         vat.setDebt("gold",   7500 * RAD); // Will use max line
@@ -158,17 +168,17 @@ contract DssAutoLineTest is DSTest {
         assertEq(silverLine, 7000 * RAD);
         assertEq(vat.Line(), 14600 * RAD);
         assertTrue(vat.Line() == goldLine + silverLine);
-    
-        (,,,, goldLast) = dssAutoLine.ilks("gold");
+
+        (,,goldLast,,) = dssAutoLine.ilks("gold");
         assertEq(goldLast, 14400);
-        (,,,, silverLast) = dssAutoLine.ilks("silver");
+        (,,silverLast,,) = dssAutoLine.ilks("silver");
         assertEq(silverLast, 14400);
     }
 
     function test_ilk_not_enabled() public {
         vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         hevm.warp(3600);
-        
+
         assertTrue( try_exec(ilk));
         dssAutoLine.file(ilk, "on", 0);
         assertTrue(!try_exec(ilk));
