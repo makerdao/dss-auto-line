@@ -10,11 +10,11 @@ interface VatLike {
 contract DssAutoLine {
     /*** Data ***/
     struct Ilk {
+        uint256  line;  // Max ceiling possible                                               [rad]
+        uint256   gap;  // Max Value between current debt and line to be set                  [rad]
         uint8      on;  // Check if ilk is enabled                                            [1 if on]
         uint32    ttl;  // Min time to pass before a new increase                             [seconds]
         uint32   last;  // Last time the ceiling was increased compared to its previous value [seconds]
-        uint256  line;  // Max ceiling possible                                               [rad]
-        uint256   gap;  // Max Value between current debt and line to be set                  [rad]
     }
 
     mapping (bytes32 => Ilk)     public ilks;
@@ -99,25 +99,5 @@ contract DssAutoLine {
         if (lineNew > line) ilk.last = uint32(now);
 
         emit Exec(_ilk, line, lineNew);
-    }
-
-    function on(bytes32 _ilk) external view returns (uint256) {
-        return uint256(ilks[_ilk].on);
-    }
-
-    function ttl(bytes32 _ilk) external view returns (uint256) {
-        return uint256(ilks[_ilk].ttl);
-    }
-
-    function last(bytes32 _ilk) external view returns (uint256) {
-        return uint256(ilks[_ilk].last);
-    }
-
-    function line(bytes32 _ilk) external view returns (uint256) {
-        return ilks[_ilk].line;
-    }
-
-    function gap(bytes32 _ilk) external view returns (uint256) {
-        return ilks[_ilk].gap;
     }
 }
