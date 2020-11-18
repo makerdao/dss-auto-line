@@ -92,6 +92,12 @@ contract DssAutoLineTest is DSTest {
         assertEq(last, 7200);
     }
 
+    function testFail_invalid_exec_ilk() public {
+        hevm.warp(3600);
+
+        dssAutoLine.exec("FAIL-A");
+    }
+
     function test_exec_multiple_ilks() public {
         vat.file("gold",         "line", 5000 * RAD);
         dssAutoLine.file("gold", "line", 7600 * RAD);
