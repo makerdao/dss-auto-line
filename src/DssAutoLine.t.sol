@@ -92,12 +92,6 @@ contract DssAutoLineTest is DSTest {
         assertEq(last, 7200);
     }
 
-    function testFail_invalid_exec_ilk() public {
-        hevm.warp(3600);
-
-        dssAutoLine.exec("FAIL-A");
-    }
-
     function test_exec_multiple_ilks() public {
         vat.file("gold",         "line", 5000 * RAD);
         dssAutoLine.file("gold", "line", 7600 * RAD);
@@ -202,5 +196,35 @@ contract DssAutoLineTest is DSTest {
         (,,, line,) = vat.ilks(ilk);
         assertEq(line, 9500 * RAD);
         assertEq(vat.Line(), 9500 * RAD);
+    }
+
+    function testFail_invalid_exec_ilk() public {
+        hevm.warp(3600);
+
+        dssAutoLine.exec("FAIL-A");
+    }
+
+    function test_exec_twice_failure() public {
+        vat.setDebt(ilk, 100 * RAD); // Max debt ceiling amount
+        vat.file(ilk,         "line", 100 * RAD);
+        dssAutoLine.file(ilk, "line", 20000 * RAD);
+
+        hevm.warp(3600);
+
+        assertTrue( try_exec(ilk));
+        (,,,uint256 line,) = vat.ilks(ilk);
+        assertEq(line, 2600 * RAD);
+        assertEq(vat.Line(), 12500 * RAD);
+
+        vat.setDebt(ilk, 2500 * RAD);
+
+        assertTrue(!try_exec(ilk)); // This should fail
+
+        hevm.warp(7200);
+
+        assertTrue( try_exec(ilk));
+        (,,,line,) = vat.ilks(ilk);
+        assertEq(line, 5000 * RAD);
+        assertEq(vat.Line(), 14900 * RAD);
     }
 }
