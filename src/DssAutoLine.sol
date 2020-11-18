@@ -75,7 +75,7 @@ contract DssAutoLine {
     }
 
     /*** Auto-Line Update ***/
-    function exec(bytes32 ilk) public {
+    function exec(bytes32 ilk) external {
         Ilk storage _ilk = ilks[ilk];
         // Check the ilk is enabled
         require(_ilk.on == 1, "DssAutoLine/ilk-not-enabled");
