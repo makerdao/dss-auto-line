@@ -51,10 +51,10 @@ contract DssAutoLine {
 
     /*** Administration ***/
     function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
-        if      (what == "line")  ilks[ilk].line = uint256(data);
+        if      (what == "on")    ilks[ilk].on   = uint8(data);
         else if (what == "ttl")   ilks[ilk].ttl  = uint32(data);
+        else if (what == "line")  ilks[ilk].line = uint256(data);
         else if (what == "gap")   ilks[ilk].gap  = uint256(data);
-        else if (what == "on")    ilks[ilk].on   = uint8(data);
         else revert("DssAutoLine/file-unrecognized-param");
         emit File(ilk, what, data);
     }

@@ -65,16 +65,6 @@ contract DssAutoLineTest is DSTest {
         (ok,) = address(dssAutoLine).call(abi.encodeWithSignature(sig, _ilk));
     }
 
-    /*
-    struct Ilk {
-        uint256  line;  // Max ceiling possible                                               [rad]
-        uint8      on;  // Check if ilk is enabled                                            [1 if on]
-        uint32    ttl;  // Min time to pass before a new increase                             [seconds]
-        uint32   last;  // Last time the ceiling was increased compared to its previous value [seconds]
-        uint256   gap;  // Max Value between current debt and line to be set                  [rad]
-    }
-    */
-
     function test_exec() public {
         vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         (uint256 Art,,, uint256 line,) = vat.ilks(ilk);
