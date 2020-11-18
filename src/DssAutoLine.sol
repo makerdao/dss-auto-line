@@ -76,18 +76,19 @@ contract DssAutoLine {
 
     /*** Auto-Line Update ***/
     function exec(bytes32 ilk) public {
+        Ilk storage _ilk = ilks[ilk];
         // Check the ilk is enabled
-        require(ilks[ilk].on == 1, "DssAutoLine/ilk-not-enabled");
+        require(_ilk.on == 1, "DssAutoLine/ilk-not-enabled");
 
         (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(ilk);
         // Calculate collateral debt
         uint256 debt = mul(Art, rate);
 
         // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
-        uint256 lineNew = min(add(debt, ilks[ilk].gap), ilks[ilk].line);
+        uint256 lineNew = min(add(debt, _ilk.gap), _ilk.line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
-        require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");
+        require(lineNew <= line || now >= add(_ilk.last, _ilk.ttl), "DssAutoLine/no-min-time-passed");
 
         // Set collateral debt ceiling
         vat.file(ilk, "line", lineNew);
@@ -95,7 +96,7 @@ contract DssAutoLine {
         vat.file("Line", add(sub(vat.Line(), line), lineNew));
 
         // Update last if it was an increment in the debt ceiling
-        if (lineNew > line) ilks[ilk].last = uint32(now);
+        if (lineNew > line) _ilk.last = uint32(now);
 
         emit Exec(ilk, line, lineNew);
     }
