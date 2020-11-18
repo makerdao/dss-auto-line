@@ -12,7 +12,7 @@ contract DssAutoLine {
     struct Ilk {
         uint256 line; // Max ceiling possible                                               [wad]
         uint256 on;   // Check if ilk is enabled
-        uint256 ttl;  // Min time to pass before a new increase                             [rad]
+        uint256 ttl;  // Min time to pass before a new increase
         uint256 gap;  // Max Value between current debt and line to be set                  [rad]
         uint256 last; // Last time the ceiling was increased compared to its previous value [seconds]
     }
@@ -58,7 +58,7 @@ contract DssAutoLine {
         else revert("DssAutoLine/file-unrecognized-param");
         emit File(ilk, what, data);
     }
-    
+
     function rely(address usr) external auth {
         wards[usr] = 1;
         emit Rely(usr);
