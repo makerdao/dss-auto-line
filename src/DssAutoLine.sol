@@ -75,49 +75,49 @@ contract DssAutoLine {
     }
 
     /*** Auto-Line Update ***/
-    function exec(bytes32 ilk) external {
-        Ilk storage _ilk = ilks[ilk];
+    function exec(bytes32 _ilk) external {
+        Ilk storage ilk = ilks[_ilk];
         // Check the ilk is enabled
-        require(_ilk.on == 1, "DssAutoLine/ilk-not-enabled");
+        require(ilk.on == 1, "DssAutoLine/ilk-not-enabled");
 
-        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(ilk);
+        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
         // Calculate collateral debt
         uint256 debt = mul(Art, rate);
 
         // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
-        uint256 lineNew = min(add(debt, _ilk.gap), _ilk.line);
+        uint256 lineNew = min(add(debt, ilk.gap), ilk.line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
-        require(lineNew <= line || now >= add(_ilk.last, _ilk.ttl), "DssAutoLine/no-min-time-passed");
+        require(lineNew <= line || now >= add(ilk.last, ilk.ttl), "DssAutoLine/no-min-time-passed");
 
         // Set collateral debt ceiling
-        vat.file(ilk, "line", lineNew);
+        vat.file(_ilk, "line", lineNew);
         // Set general debt ceiling
         vat.file("Line", add(sub(vat.Line(), line), lineNew));
 
         // Update last if it was an increment in the debt ceiling
-        if (lineNew > line) _ilk.last = uint32(now);
+        if (lineNew > line) ilk.last = uint32(now);
 
-        emit Exec(ilk, line, lineNew);
+        emit Exec(_ilk, line, lineNew);
     }
 
-    function on(bytes32 ilk) external view returns (uint256) {
-        return uint256(ilks[ilk].on);
+    function on(bytes32 _ilk) external view returns (uint256) {
+        return uint256(ilks[_ilk].on);
     }
 
-    function ttl(bytes32 ilk) external view returns (uint256) {
-        return uint256(ilks[ilk].ttl);
+    function ttl(bytes32 _ilk) external view returns (uint256) {
+        return uint256(ilks[_ilk].ttl);
     }
 
-    function last(bytes32 ilk) external view returns (uint256) {
-        return uint256(ilks[ilk].last);
+    function last(bytes32 _ilk) external view returns (uint256) {
+        return uint256(ilks[_ilk].last);
     }
 
-    function line(bytes32 ilk) external view returns (uint256) {
-        return ilks[ilk].line;
+    function line(bytes32 _ilk) external view returns (uint256) {
+        return ilks[_ilk].line;
     }
 
-    function gap(bytes32 ilk) external view returns (uint256) {
-        return ilks[ilk].gap;
+    function gap(bytes32 _ilk) external view returns (uint256) {
+        return ilks[_ilk].gap;
     }
 }
