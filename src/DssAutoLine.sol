@@ -100,4 +100,24 @@ contract DssAutoLine {
 
         emit Exec(ilk, line, lineNew);
     }
+
+    function on(bytes32 ilk) external view returns (uint256) {
+        return uint256(ilks[ilk].on);
+    }
+
+    function ttl(bytes32 ilk) external view returns (uint256) {
+        return uint256(ilks[ilk].ttl);
+    }
+
+    function last(bytes32 ilk) external view returns (uint256) {
+        return uint256(ilks[ilk].last);
+    }
+
+    function line(bytes32 ilk) external view returns (uint256) {
+        return ilks[ilk].line;
+    }
+
+    function gap(bytes32 ilk) external view returns (uint256) {
+        return ilks[ilk].gap;
+    }
 }
