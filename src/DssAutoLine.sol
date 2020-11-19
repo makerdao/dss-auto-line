@@ -13,8 +13,8 @@ contract DssAutoLine {
         uint256  line;  // Max ceiling possible                                               [rad]
         uint256   gap;  // Max Value between current debt and line to be set                  [rad]
         uint8      on;  // Check if ilk is enabled                                            [1 if on]
-        uint32    ttl;  // Min time to pass before a new increase                             [seconds]
-        uint32   last;  // Last time the ceiling was increased compared to its previous value [seconds]
+        uint48    ttl;  // Min time to pass before a new increase                             [seconds]
+        uint48   last;  // Last time the ceiling was increased compared to its previous value [seconds]
     }
 
     mapping (bytes32 => Ilk)     public ilks;
@@ -52,7 +52,7 @@ contract DssAutoLine {
     /*** Administration ***/
     function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
         if      (what == "on")    ilks[ilk].on   = uint8(data);
-        else if (what == "ttl")   ilks[ilk].ttl  = uint32(data);
+        else if (what == "ttl")   ilks[ilk].ttl  = uint48(data);
         else if (what == "line")  ilks[ilk].line = uint256(data);
         else if (what == "gap")   ilks[ilk].gap  = uint256(data);
         else revert("DssAutoLine/file-unrecognized-param");
@@ -96,7 +96,7 @@ contract DssAutoLine {
         vat.file("Line", add(sub(vat.Line(), line), lineNew));
 
         // Update last if it was an increment in the debt ceiling
-        if (lineNew > line) ilk.last = uint32(now);
+        if (lineNew > line) ilk.last = uint48(now);
 
         emit Exec(_ilk, line, lineNew);
     }
