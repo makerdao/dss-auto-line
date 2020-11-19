@@ -79,7 +79,7 @@ contract DssAutoLine {
         Ilk storage ilk = ilks[_ilk];
 
         // Return if the ilk is not enabled
-        if (ilk.on != 1) return false; // "DssAutoLine/ilk-not-enabled"
+        if (ilk.on != 1) return false;
 
         (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
         // Calculate collateral debt
