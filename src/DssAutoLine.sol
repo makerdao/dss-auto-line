@@ -10,11 +10,11 @@ interface VatLike {
 contract DssAutoLine {
     /*** Data ***/
     struct Ilk {
-        uint256 line; // Max ceiling possible                                               [wad]
-        uint256 on;   // Check if ilk is enabled
-        uint256 ttl;  // Min time to pass before a new increase                             [rad]
-        uint256 gap;  // Max Value between current debt and line to be set                  [rad]
-        uint256 last; // Last time the ceiling was increased compared to its previous value [seconds]
+        uint256  line;  // Max ceiling possible                                               [rad]
+        uint256   gap;  // Max Value between current debt and line to be set                  [rad]
+        uint8      on;  // Check if ilk is enabled                                            [1 if on]
+        uint48    ttl;  // Min time to pass before a new increase                             [seconds]
+        uint48   last;  // Last time the ceiling was increased compared to its previous value [seconds]
     }
 
     mapping (bytes32 => Ilk)     public ilks;
@@ -51,14 +51,14 @@ contract DssAutoLine {
 
     /*** Administration ***/
     function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
-        if (what == "line") ilks[ilk].line = data;
-        else if (what == "ttl") ilks[ilk].ttl = data;
-        else if (what == "gap") ilks[ilk].gap = data;
-        else if (what == "on") ilks[ilk].on = data;
+        if      (what == "on")    ilks[ilk].on   = uint8(data);
+        else if (what == "ttl")   ilks[ilk].ttl  = uint48(data);
+        else if (what == "line")  ilks[ilk].line = uint256(data);
+        else if (what == "gap")   ilks[ilk].gap  = uint256(data);
         else revert("DssAutoLine/file-unrecognized-param");
         emit File(ilk, what, data);
     }
-    
+
     function rely(address usr) external auth {
         wards[usr] = 1;
         emit Rely(usr);
@@ -75,28 +75,29 @@ contract DssAutoLine {
     }
 
     /*** Auto-Line Update ***/
-    function exec(bytes32 ilk) public {
+    function exec(bytes32 _ilk) external {
+        Ilk storage ilk = ilks[_ilk];
         // Check the ilk is enabled
-        require(ilks[ilk].on == 1, "DssAutoLine/ilk-not-enabled");
+        require(ilk.on == 1, "DssAutoLine/ilk-not-enabled");
 
-        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(ilk);
+        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
         // Calculate collateral debt
         uint256 debt = mul(Art, rate);
 
         // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
-        uint256 lineNew = min(add(debt, ilks[ilk].gap), ilks[ilk].line);
+        uint256 lineNew = min(add(debt, ilk.gap), ilk.line);
 
         // Check the ceiling is not increasing or enough time has passed since last increase
-        require(lineNew <= line || now >= add(ilks[ilk].last, ilks[ilk].ttl), "DssAutoLine/no-min-time-passed");
+        require(lineNew <= line || now >= add(ilk.last, ilk.ttl), "DssAutoLine/no-min-time-passed");
 
         // Set collateral debt ceiling
-        vat.file(ilk, "line", lineNew);
+        vat.file(_ilk, "line", lineNew);
         // Set general debt ceiling
         vat.file("Line", add(sub(vat.Line(), line), lineNew));
 
         // Update last if it was an increment in the debt ceiling
-        if (lineNew > line) ilks[ilk].last = now;
+        if (lineNew > line) ilk.last = uint48(now);
 
-        emit Exec(ilk, line, lineNew);
+        emit Exec(_ilk, line, lineNew);
     }
 }
