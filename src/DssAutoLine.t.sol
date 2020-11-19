@@ -60,11 +60,6 @@ contract DssAutoLineTest is DSTest {
         hevm.warp(0);
     }
 
-    function try_exec(bytes32 _ilk) internal returns (bool ok) {
-        string memory sig = "exec(bytes32)";
-        (ok,) = address(dssAutoLine).call(abi.encodeWithSignature(sig, _ilk));
-    }
-
     function test_exec() public {
         vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         (uint256 Art,,, uint256 line,) = vat.ilks(ilk);
@@ -116,11 +111,11 @@ contract DssAutoLineTest is DSTest {
         assertEq(silverLine, 5000 * RAD);
         assertEq(vat.Line(), 10000 * RAD);
 
-        assertTrue(!try_exec("gold"));
-        assertTrue(!try_exec("silver"));
+        assertTrue(!dssAutoLine.exec("gold"));
+        assertTrue(!dssAutoLine.exec("silver"));
         hevm.warp(3600);
-        assertTrue( try_exec("gold"));
-        assertTrue(!try_exec("silver"));
+        assertTrue( dssAutoLine.exec("gold"));
+        assertTrue(!dssAutoLine.exec("silver"));
 
         (,,, goldLine,) = vat.ilks("gold");
         assertEq(goldLine, 7500 * RAD);
@@ -128,10 +123,10 @@ contract DssAutoLineTest is DSTest {
         (,,,,uint256 goldLast) = dssAutoLine.ilks("gold");
         assertEq(goldLast, 3600);
 
-        assertTrue(!try_exec("silver")); // Don't need to check gold since no debt increase
+        assertTrue(!dssAutoLine.exec("silver")); // Don't need to check gold since no debt increase
         hevm.warp(7200);
-        assertTrue( try_exec("gold"));   // Gold line does not increase
-        assertTrue( try_exec("silver")); // Silver line increases
+        assertTrue( dssAutoLine.exec("gold"));   // Gold line does not increase
+        assertTrue( dssAutoLine.exec("silver")); // Silver line increases
 
         (,,, goldLine,) = vat.ilks("gold");
         assertEq(goldLine, 7500 * RAD);
@@ -149,8 +144,8 @@ contract DssAutoLineTest is DSTest {
         vat.setDebt("silver", 6000 * RAD); // Will use `gap`
 
         hevm.warp(14400); // Both will be able to increase
-        assertTrue(try_exec("gold"));
-        assertTrue(try_exec("silver"));
+        assertTrue(dssAutoLine.exec("gold"));
+        assertTrue(dssAutoLine.exec("silver"));
 
         (,,,goldLine,) = vat.ilks("gold");
         assertEq(goldLine, 7600 * RAD);
@@ -169,17 +164,17 @@ contract DssAutoLineTest is DSTest {
         vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         hevm.warp(3600);
 
-        assertTrue( try_exec(ilk));
+        assertTrue( dssAutoLine.exec(ilk));
         dssAutoLine.file(ilk, "on", 0);
-        assertTrue(!try_exec(ilk));
+        assertTrue(!dssAutoLine.exec(ilk));
     }
 
     function test_exec_not_enough_time_passed() public {
         vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         hevm.warp(3599);
-        assertTrue(!try_exec(ilk));
+        assertTrue(!dssAutoLine.exec(ilk));
         hevm.warp(3600);
-        assertTrue( try_exec(ilk));
+        assertTrue( dssAutoLine.exec(ilk));
     }
 
     function test_exec_line_decrease_under_min_time() public {
@@ -189,9 +184,15 @@ contract DssAutoLineTest is DSTest {
         assertEq(line, 10000 * RAD);
         assertEq(vat.Line(), 10000 * RAD);
 
-        assertTrue(!try_exec(ilk));
+        assertTrue(!dssAutoLine.exec(ilk));
+        (,,, line,) = vat.ilks(ilk);
+        assertEq(line, 10000 * RAD);
+        assertEq(vat.Line(), 10000 * RAD);
+
         vat.setDebt(ilk, 7000 * RAD); // debt + gap = 7000 + 2500 = 9500 < 10000
-        assertTrue( try_exec(ilk));
+        (uint256 Art,,,,) = vat.ilks(ilk);
+        assertEq(Art, 7000 * WAD);
+        assertTrue( dssAutoLine.exec(ilk));
 
         (,,, line,) = vat.ilks(ilk);
         assertEq(line, 9500 * RAD);
@@ -200,7 +201,7 @@ contract DssAutoLineTest is DSTest {
 
     function test_invalid_exec_ilk() public {
         hevm.warp(3600);
-        assertTrue(!try_exec("FAIL-A"));
+        assertTrue(!dssAutoLine.exec("FAIL-A"));
     }
 
     function test_exec_twice_failure() public {
@@ -210,18 +211,18 @@ contract DssAutoLineTest is DSTest {
 
         hevm.warp(3600);
 
-        assertTrue( try_exec(ilk));
+        assertTrue( dssAutoLine.exec(ilk));
         (,,,uint256 line,) = vat.ilks(ilk);
         assertEq(line, 2600 * RAD);
         assertEq(vat.Line(), 12500 * RAD);
 
         vat.setDebt(ilk, 2500 * RAD);
 
-        assertTrue(!try_exec(ilk)); // This should fail
+        assertTrue(!dssAutoLine.exec(ilk)); // This should fail
 
         hevm.warp(7200);
 
-        assertTrue( try_exec(ilk));
+        assertTrue( dssAutoLine.exec(ilk));
         (,,,line,) = vat.ilks(ilk);
         assertEq(line, 5000 * RAD);
         assertEq(vat.Line(), 14900 * RAD);
