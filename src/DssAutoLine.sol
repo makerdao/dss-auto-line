@@ -75,6 +75,8 @@ contract DssAutoLine {
     }
 
     /*** Auto-Line Update ***/
+    // @param  _ilk  The bytes32 ilk tag to adjust (ex. "ETH-A")
+    // @return       The ilk line value
     function exec(bytes32 _ilk) external returns (uint256) {
         Ilk storage ilk = ilks[_ilk];
         (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
