@@ -75,13 +75,13 @@ contract DssAutoLine {
     }
 
     /*** Auto-Line Update ***/
-    function exec(bytes32 _ilk) external returns (bool) {
+    function exec(bytes32 _ilk) external returns (uint256) {
         Ilk storage ilk = ilks[_ilk];
+        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
 
         // Return if the ilk is not enabled
-        if (ilk.on != 1) return false;
+        if (ilk.on != 1) return line;
 
-        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
         // Calculate collateral debt
         uint256 debt = mul(Art, rate);
 
@@ -89,7 +89,7 @@ contract DssAutoLine {
         uint256 lineNew = min(add(debt, ilk.gap), ilk.line);
 
         // Short-circuit if the time since last increase has not passed
-        if (lineNew > line && now < add(ilk.last, ilk.ttl)) return false;
+        if (lineNew > line && now < add(ilk.last, ilk.ttl)) return line;
 
         // Set collateral debt ceiling
         vat.file(_ilk, "line", lineNew);
@@ -101,6 +101,6 @@ contract DssAutoLine {
 
         emit Exec(_ilk, line, lineNew);
 
-        return true;
+        return lineNew;
     }
 }
