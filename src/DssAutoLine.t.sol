@@ -169,6 +169,14 @@ contract DssAutoLineTest is DSTest {
         dssAutoLine.file(ilk, "on", 0);
     }
 
+    function test_exec_not_enough_time_passed() public {
+        vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
+        hevm.warp(3599);
+        assertEq(dssAutoLine.exec(ilk), 10000 * RAD);  // No change
+        hevm.warp(3600);
+        assertEq(dssAutoLine.exec(ilk), 12500 * RAD);  // + gap
+    }
+
     function test_exec_line_decrease_under_min_time() public {
         // As the debt ceiling will decrease
         vat.setDebt(ilk, 10000 * RAD);
