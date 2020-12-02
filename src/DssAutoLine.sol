@@ -25,7 +25,7 @@ contract DssAutoLine {
     /*** Events ***/
     event Rely(address indexed usr);
     event Deny(address indexed usr);
-    event Enable(bytes32 ilk);
+    event Enable(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl);
     event Disable(bytes32 ilk);
     event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
 
@@ -63,7 +63,7 @@ contract DssAutoLine {
         require(ttl < uint48(-1), "DssAutoLine/invalid-ttl");
         require(line > 0, "DssAutoLine/invalid-line");
         ilks[ilk] = Ilk(line, gap, uint48(ttl), 0, 0);
-        emit Enable(ilk);
+        emit Enable(ilk, line, gap, ttl);
     }
 
     /**
