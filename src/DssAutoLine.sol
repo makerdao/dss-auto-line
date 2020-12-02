@@ -53,14 +53,23 @@ contract DssAutoLine {
 
     /*** Administration ***/
 
-    // Add or update an ilk
+    /**
+        @dev Add or update an ilk
+        @param ilk    Collateral type
+        @param line   Collateral maximum debt ceiling that can be configured [RAD]
+        @param gap    Amount of collateral to step [RAD]
+        @param ttl    Minimum time between increase [seconds]
+    */
     function enableIlk(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl) external auth {
         require(ttl < uint48(-1), "DssAutoLine/invalid-ttl");
         ilks[ilk] = Ilk(line, gap, 1, uint48(ttl), 0, 0);
         emit Enable(ilk);
     }
 
-    // Disable an ilk
+    /**
+        @dev Disable and remove an ilk
+        @param ilk    Collateral type
+    */
     function disableIlk(bytes32 ilk) external auth {
         delete ilks[ilk];
         emit Disable(ilk);
