@@ -26,7 +26,8 @@ contract DssAutoLine {
     /*** Events ***/
     event Rely(address indexed usr);
     event Deny(address indexed usr);
-    event File(bytes32 indexed ilk, bytes32 indexed what, uint256 data);
+    event Enable(bytes32 ilk);
+    event Disable(bytes32 ilk);
     event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
 
     /*** Init ***/
@@ -51,13 +52,18 @@ contract DssAutoLine {
     }
 
     /*** Administration ***/
-    function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
-        if      (what == "on")    ilks[ilk].on   = uint8(data);
-        else if (what == "ttl")   ilks[ilk].ttl  = uint48(data);
-        else if (what == "line")  ilks[ilk].line = uint256(data);
-        else if (what == "gap")   ilks[ilk].gap  = uint256(data);
-        else revert("DssAutoLine/file-unrecognized-param");
-        emit File(ilk, what, data);
+
+    // Add or update an ilk
+    function enableIlk(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl) external auth {
+        require(ttl < uint48(-1), "DssAutoLine/invalid-ttl");
+        ilks[ilk] = Ilk(line, gap, 1, uint48(ttl), 0, 0);
+        emit Enable(ilk);
+    }
+
+    // Disable an ilk
+    function disableIlk(bytes32 ilk) external auth {
+        delete ilks[ilk];
+        emit Disable(ilk);
     }
 
     function rely(address usr) external auth {
