@@ -25,8 +25,8 @@ contract DssAutoLine {
     /*** Events ***/
     event Rely(address indexed usr);
     event Deny(address indexed usr);
-    event Enable(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl);
-    event Disable(bytes32 ilk);
+    event Enable(bytes32 indexed ilk, uint256 line, uint256 gap, uint256 ttl);
+    event Disable(bytes32 indexed ilk);
     event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
 
     /*** Init ***/
