@@ -76,7 +76,7 @@ contract DssAutoLineTest is DSTest {
         (,,,line,) = vat.ilks(ilk);
         assertEq(line, 12500 * RAD);
         assertEq(vat.Line(), 12500 * RAD);
-        (,,,, uint256 last, uint256 lastInc) = dssAutoLine.ilks(ilk);
+        (,,, uint256 last, uint256 lastInc) = dssAutoLine.ilks(ilk);
         assertEq(last   , 1 hours / 15);
         assertEq(lastInc, 1 hours);
         vat.setDebt(ilk, 10200 * RAD); // New max debt ceiling amount
@@ -87,7 +87,7 @@ contract DssAutoLineTest is DSTest {
         (,,,line,) = vat.ilks(ilk);
         assertEq(line, 12600 * RAD); // < 12700 * RAD (due max line: 10200 + gap)
         assertEq(vat.Line(), 12600 * RAD);
-        (,,,, last, lastInc) = dssAutoLine.ilks(ilk);
+        (,,, last, lastInc) = dssAutoLine.ilks(ilk);
         assertEq(last   , 2 hours / 15);
         assertEq(lastInc, 2 hours);
     }
@@ -122,7 +122,7 @@ contract DssAutoLineTest is DSTest {
         (,,, goldLine,) = vat.ilks("gold");
         assertEq(goldLine, 7500 * RAD);
         assertEq(vat.Line(), 12500 * RAD);
-        (,,,, uint256 goldLast, uint256 goldLastInc) = dssAutoLine.ilks("gold");
+        (,,, uint256 goldLast, uint256 goldLastInc) = dssAutoLine.ilks("gold");
         assertEq(goldLast   , 1 hours / 15);
         assertEq(goldLastInc, 1 hours);
 
@@ -139,10 +139,10 @@ contract DssAutoLineTest is DSTest {
         assertEq(vat.Line(), 13500 * RAD);
         assertTrue(vat.Line() == goldLine + silverLine);
 
-        (,,,, goldLast, goldLastInc) = dssAutoLine.ilks("gold");
+        (,,, goldLast, goldLastInc) = dssAutoLine.ilks("gold");
         assertEq(goldLast   , 1 hours / 15);
         assertEq(goldLastInc, 1 hours);
-        (,,,, uint256 silverLast, uint256 silverLastInc) = dssAutoLine.ilks("silver");
+        (,,, uint256 silverLast, uint256 silverLastInc) = dssAutoLine.ilks("silver");
         assertEq(silverLast   , 2 hours / 15);
         assertEq(silverLastInc, 2 hours);
 
@@ -161,10 +161,10 @@ contract DssAutoLineTest is DSTest {
         assertEq(vat.Line(), 14600 * RAD);
         assertTrue(vat.Line() == goldLine + silverLine);
 
-        (,,,, goldLast, goldLastInc) = dssAutoLine.ilks("gold");
+        (,,, goldLast, goldLastInc) = dssAutoLine.ilks("gold");
         assertEq(goldLast   , 4 hours / 15);
         assertEq(goldLastInc, 4 hours);
-        (,,,, silverLast, silverLastInc) = dssAutoLine.ilks("silver");
+        (,,, silverLast, silverLastInc) = dssAutoLine.ilks("silver");
         assertEq(silverLast   , 4 hours / 15);
         assertEq(silverLastInc, 4 hours);
     }
@@ -191,7 +191,7 @@ contract DssAutoLineTest is DSTest {
         (,,, uint256 line,) = vat.ilks(ilk);
         assertEq(line, 10000 * RAD);
         assertEq(vat.Line(), 10000 * RAD);
-        (,,,, uint256 last, uint256 lastInc) = dssAutoLine.ilks(ilk);
+        (,,, uint256 last, uint256 lastInc) = dssAutoLine.ilks(ilk);
         assertEq(last   , 0);
         assertEq(lastInc, 0);
 
@@ -201,7 +201,7 @@ contract DssAutoLineTest is DSTest {
         (,,, line,) = vat.ilks(ilk);
         assertEq(line, 10000 * RAD);
         assertEq(vat.Line(), 10000 * RAD);
-        (,,,, last, lastInc) = dssAutoLine.ilks(ilk);
+        (,,, last, lastInc) = dssAutoLine.ilks(ilk);
         assertEq(last   , 0); // no update
         assertEq(lastInc, 0); // no increment
 
@@ -215,7 +215,7 @@ contract DssAutoLineTest is DSTest {
         (,,, line,) = vat.ilks(ilk);
         assertEq(line, 9500 * RAD);
         assertEq(vat.Line(), 9500 * RAD);
-        (,,,, last, lastInc) = dssAutoLine.ilks(ilk);
+        (,,, last, lastInc) = dssAutoLine.ilks(ilk);
         assertEq(last   , 2); // update
         assertEq(lastInc, 0); // no increment
 
@@ -227,7 +227,7 @@ contract DssAutoLineTest is DSTest {
         (,,, line,) = vat.ilks(ilk);
         assertEq(line, 9500 * RAD);
         assertEq(vat.Line(), 9500 * RAD);
-        (,,,, last, lastInc) = dssAutoLine.ilks(ilk);
+        (,,, last, lastInc) = dssAutoLine.ilks(ilk);
         assertEq(last   , 2); // no update
         assertEq(lastInc, 0); // no increment
 
@@ -237,7 +237,7 @@ contract DssAutoLineTest is DSTest {
         (,,, line,) = vat.ilks(ilk);
         assertEq(line, 8500 * RAD);
         assertEq(vat.Line(), 8500 * RAD);
-        (,,,, last, lastInc) = dssAutoLine.ilks(ilk);
+        (,,, last, lastInc) = dssAutoLine.ilks(ilk);
         assertEq(last   , 3); // update
         assertEq(lastInc, 0); // no increment
     }
