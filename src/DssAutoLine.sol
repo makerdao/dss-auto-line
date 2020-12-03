@@ -12,7 +12,6 @@ contract DssAutoLine {
     struct Ilk {
         uint256   line;  // Max ceiling possible                                               [rad]
         uint256    gap;  // Max Value between current debt and line to be set                  [rad]
-        uint8       on;  // Check if ilk is enabled                                            [1 if on]
         uint48     ttl;  // Min time to pass before a new increase                             [seconds]
         uint48    last;  // Last block the ceiling was updated                                 [blocks]
         uint48 lastInc;  // Last time the ceiling was increased compared to its previous value [seconds]
@@ -26,7 +25,8 @@ contract DssAutoLine {
     /*** Events ***/
     event Rely(address indexed usr);
     event Deny(address indexed usr);
-    event File(bytes32 indexed ilk, bytes32 indexed what, uint256 data);
+    event Setup(bytes32 indexed ilk, uint256 line, uint256 gap, uint256 ttl);
+    event Remove(bytes32 indexed ilk);
     event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
 
     /*** Init ***/
@@ -51,13 +51,28 @@ contract DssAutoLine {
     }
 
     /*** Administration ***/
-    function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
-        if      (what == "on")    ilks[ilk].on   = uint8(data);
-        else if (what == "ttl")   ilks[ilk].ttl  = uint48(data);
-        else if (what == "line")  ilks[ilk].line = uint256(data);
-        else if (what == "gap")   ilks[ilk].gap  = uint256(data);
-        else revert("DssAutoLine/file-unrecognized-param");
-        emit File(ilk, what, data);
+
+    /**
+        @dev Add or update an ilk
+        @param ilk    Collateral type (ex. ETH-A)
+        @param line   Collateral maximum debt ceiling that can be configured [RAD]
+        @param gap    Amount of collateral to step [RAD]
+        @param ttl    Minimum time between increase [seconds]
+    */
+    function setIlk(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl) external auth {
+        require(ttl  < uint48(-1), "DssAutoLine/invalid-ttl");
+        require(line > 0,          "DssAutoLine/invalid-line");
+        ilks[ilk] = Ilk(line, gap, uint48(ttl), 0, 0);
+        emit Setup(ilk, line, gap, ttl);
+    }
+
+    /**
+        @dev Remove an ilk
+        @param ilk    Collateral type (ex. ETH-A)
+    */
+    function remIlk(bytes32 ilk) external auth {
+        delete ilks[ilk];
+        emit Remove(ilk);
     }
 
     function rely(address usr) external auth {
@@ -79,17 +94,17 @@ contract DssAutoLine {
     // @param  _ilk  The bytes32 ilk tag to adjust (ex. "ETH-A")
     // @return       The ilk line value as uint256
     function exec(bytes32 _ilk) external returns (uint256) {
+        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
+        uint256 ilkLine = ilks[_ilk].line;
+
+        // Return if the ilk is not enabled
+        if (ilkLine == 0) return line;
+
         // 1 SLOAD
-        uint8  ilkOn      = ilks[_ilk].on;
         uint48 ilkTtl     = ilks[_ilk].ttl;
         uint48 ilkLast    = ilks[_ilk].last;
         uint48 ilkLastInc = ilks[_ilk].lastInc;
         //
-
-        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
-
-        // Return if the ilk is not enabled
-        if (ilkOn != 1) return line;
 
         // Return if there was already an update in the same block
         if (ilkLast == block.number) return line;
@@ -97,10 +112,8 @@ contract DssAutoLine {
         // Calculate collateral debt
         uint256 debt = mul(Art, rate);
 
-        // 2 SLOADs
-        uint256 ilkLine = ilks[_ilk].line;
         uint256 ilkGap  = ilks[_ilk].gap;
-        //
+
         // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
         uint256 lineNew = min(add(debt, ilkGap), ilkLine);
 
