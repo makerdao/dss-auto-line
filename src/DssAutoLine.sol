@@ -25,8 +25,8 @@ contract DssAutoLine {
     /*** Events ***/
     event Rely(address indexed usr);
     event Deny(address indexed usr);
-    event Enable(bytes32 indexed ilk, uint256 line, uint256 gap, uint256 ttl);
-    event Disable(bytes32 indexed ilk);
+    event Setup(bytes32 indexed ilk, uint256 line, uint256 gap, uint256 ttl);
+    event Remove(bytes32 indexed ilk);
     event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
 
     /*** Init ***/
@@ -54,7 +54,7 @@ contract DssAutoLine {
 
     /**
         @dev Add or update an ilk
-        @param ilk    Collateral type
+        @param ilk    Collateral type (ex. ETH-A)
         @param line   Collateral maximum debt ceiling that can be configured [RAD]
         @param gap    Amount of collateral to step [RAD]
         @param ttl    Minimum time between increase [seconds]
@@ -63,16 +63,16 @@ contract DssAutoLine {
         require(ttl  < uint48(-1), "DssAutoLine/invalid-ttl");
         require(line > 0,          "DssAutoLine/invalid-line");
         ilks[ilk] = Ilk(line, gap, uint48(ttl), 0, 0);
-        emit Enable(ilk, line, gap, ttl);
+        emit Setup(ilk, line, gap, ttl);
     }
 
     /**
-        @dev Disable and remove an ilk
-        @param ilk    Collateral type
+        @dev Remove an ilk
+        @param ilk    Collateral type (ex. ETH-A)
     */
     function remIlk(bytes32 ilk) external auth {
         delete ilks[ilk];
-        emit Disable(ilk);
+        emit Remove(ilk);
     }
 
     function rely(address usr) external auth {
