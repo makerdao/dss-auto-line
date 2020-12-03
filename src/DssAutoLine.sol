@@ -59,7 +59,7 @@ contract DssAutoLine {
         @param gap    Amount of collateral to step [RAD]
         @param ttl    Minimum time between increase [seconds]
     */
-    function enableIlk(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl) external auth {
+    function setIlk(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl) external auth {
         require(ttl  < uint48(-1), "DssAutoLine/invalid-ttl");
         require(line > 0,          "DssAutoLine/invalid-line");
         ilks[ilk] = Ilk(line, gap, uint48(ttl), 0, 0);
@@ -70,7 +70,7 @@ contract DssAutoLine {
         @dev Disable and remove an ilk
         @param ilk    Collateral type
     */
-    function disableIlk(bytes32 ilk) external auth {
+    function remIlk(bytes32 ilk) external auth {
         delete ilks[ilk];
         emit Disable(ilk);
     }

@@ -52,7 +52,7 @@ contract DssAutoLineTest is DSTest {
         vat.file(ilk, "rate", 1 * RAY);
         dssAutoLine = new DssAutoLine(address(vat));
 
-        dssAutoLine.enableIlk(ilk, 12600 * RAD, 2500 * RAD, 1 hours);
+        dssAutoLine.setIlk(ilk, 12600 * RAD, 2500 * RAD, 1 hours);
 
         hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         _warp(0);
@@ -94,12 +94,12 @@ contract DssAutoLineTest is DSTest {
 
     function test_exec_multiple_ilks() public {
         vat.file("gold",         "line", 5000 * RAD);
-        dssAutoLine.enableIlk("gold", 7600 * RAD, 2500 * RAD, 1 hours);
+        dssAutoLine.setIlk("gold", 7600 * RAD, 2500 * RAD, 1 hours);
 
         vat.file("silver", "line", 5000 * RAD);
         vat.file("silver", "rate", 1 * RAY);
 
-        dssAutoLine.enableIlk("silver", 7600 * RAD, 1000 * RAD, 2 hours);
+        dssAutoLine.setIlk("silver", 7600 * RAD, 1000 * RAD, 2 hours);
 
         vat.setDebt("gold", 5000 * RAD); // Max gold debt ceiling amount
         (uint256 goldArt,,, uint256 goldLine,) = vat.ilks("gold");
@@ -173,7 +173,7 @@ contract DssAutoLineTest is DSTest {
         vat.setDebt(ilk, 10000 * RAD); // Max debt ceiling amount
         _warp(1 hours);
 
-        dssAutoLine.disableIlk(ilk);
+        dssAutoLine.remIlk(ilk);
         assertEq(dssAutoLine.exec(ilk), 10000 * RAD); // The line from the vat
     }
 
@@ -250,7 +250,7 @@ contract DssAutoLineTest is DSTest {
     function test_exec_twice_failure() public {
         vat.setDebt(ilk, 100 * RAD); // Max debt ceiling amount
         vat.file(ilk,         "line", 100 * RAD);
-        dssAutoLine.enableIlk(ilk, 20000 * RAD, 2500 * RAD, 1 hours);
+        dssAutoLine.setIlk(ilk, 20000 * RAD, 2500 * RAD, 1 hours);
 
         _warp(1 hours);
 
