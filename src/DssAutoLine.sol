@@ -27,35 +27,50 @@ interface VatLike {
 }
 
 contract DssAutoLine {
-    /*** Data ***/
+
+    // --- Auth ---
+    mapping (address => uint256) public wards;
+    function rely(address usr) external auth { wards[usr] = 1; emit Rely(usr);}
+    function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr);}
+    modifier auth { require(wards[msg.sender] == 1, "DssAutoLine/not-authorized"); _;}
+
+    // --- Can ---
+    mapping (address => uint256) public keepers;
+    function relyKeeper(address usr) external auth { keepers[usr] = 1; emit RelyKeeper(usr);}
+    function denyKeeper(address usr) external auth { keepers[usr] = 0; emit DenyKeeper(usr);}
+    modifier keeper { require(keepers[msg.sender] == 1, "DssAutoLine/not-authorized");_;}
+
+    // --- Data ---
     struct Ilk {
         uint256   line;  // Max ceiling possible                                               [rad]
         uint256    gap;  // Max Value between current debt and line to be set                  [rad]
-        uint48     ttl;  // Min time to pass before a new increase                             [seconds]
+        uint48     ttl;  // Min block to pass before a new increase                            [blocks]
+        uint48     ctl;  // Min block to pass before a new decrease                            [blocks]
+        uint48     atl;  // Min block to pass before a new decrease for keeper                 [blocks]
         uint48    last;  // Last block the ceiling was updated                                 [blocks]
-        uint48 lastInc;  // Last time the ceiling was increased compared to its previous value [seconds]
     }
 
     mapping (bytes32 => Ilk)     public ilks;
-    mapping (address => uint256) public wards;
 
     VatLike immutable public vat;
 
-    /*** Events ***/
+    // --- Events ---
     event Rely(address indexed usr);
     event Deny(address indexed usr);
-    event Setup(bytes32 indexed ilk, uint256 line, uint256 gap, uint256 ttl);
+    event RelyKeeper(address indexed usr);
+    event DenyKeeper(address indexed usr);
+    event Setup(bytes32 indexed ilk, uint256 line, uint256 gap, uint256 ttl, uint256 ctl);
     event Remove(bytes32 indexed ilk);
     event Exec(bytes32 indexed ilk, uint256 line, uint256 lineNew);
 
-    /*** Init ***/
+    // --- Init ---
     constructor(address vat_) public {
         vat = VatLike(vat_);
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
 
-    /*** Math ***/
+    // --- Math ---
     function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
         require((z = x + y) >= x);
     }
@@ -69,20 +84,21 @@ contract DssAutoLine {
         return x <= y ? x : y;
     }
 
-    /*** Administration ***/
+    // --- Administration ---
 
     /**
         @dev Add or update an ilk
         @param ilk    Collateral type (ex. ETH-A)
         @param line   Collateral maximum debt ceiling that can be configured [RAD]
         @param gap    Amount of collateral to step [RAD]
-        @param ttl    Minimum time between increase [seconds]
+        @param ttl    Minimum blocks between increase [blocks]
+        @param atl    Minimum blocks between decrease for keeper [blocks]
     */
-    function setIlk(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl) external auth {
+    function setIlk(bytes32 ilk, uint256 line, uint256 gap, uint256 ttl, uint256 atl) external auth {
         require(ttl  < uint48(-1), "DssAutoLine/invalid-ttl");
         require(line > 0,          "DssAutoLine/invalid-line");
-        ilks[ilk] = Ilk(line, gap, uint48(ttl), 0, 0);
-        emit Setup(ilk, line, gap, ttl);
+        ilks[ilk] = Ilk(line, gap, uint48(ttl), 0, uint48(atl), 0);
+        emit Setup(ilk, line, gap, ttl, atl);
     }
 
     /**
@@ -94,69 +110,68 @@ contract DssAutoLine {
         emit Remove(ilk);
     }
 
-    function rely(address usr) external auth {
-        wards[usr] = 1;
-        emit Rely(usr);
-    }
 
-    function deny(address usr) external auth {
-        wards[usr] = 0;
-        emit Deny(usr);
-    }
-
-    modifier auth {
-        require(wards[msg.sender] == 1, "DssAutoLine/not-authorized");
-        _;
-    }
-
-    /*** Auto-Line Update ***/
+    // --- Keeper ---
     // @param  _ilk  The bytes32 ilk tag to adjust (ex. "ETH-A")
     // @return       The ilk line value as uint256
-    function exec(bytes32 _ilk) external returns (uint256) {
-        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(_ilk);
-        uint256 ilkLine = ilks[_ilk].line;
+    function execKeeper(bytes32 _ilk) external keeper returns (uint256) {
+        uint256 ilkLine   = ilks[_ilk].line;
+        require(ilkLine != 0, "DssAutoLine/no-autoline");
 
-        // Return if the ilk is not enabled
-        if (ilkLine == 0) return line;
+        uint48  ilkTtl     = ilks[_ilk].ttl;
+        uint48  ilkAtl     = ilks[_ilk].atl;
+        uint48  ilkCtl     = ilks[_ilk].ctl;
+        uint48  ilkLast    = ilks[_ilk].last;
+        uint256 ilkGap     = ilks[_ilk].gap;
 
-        // 1 SLOAD
-        uint48 ilkTtl     = ilks[_ilk].ttl;
-        uint48 ilkLast    = ilks[_ilk].last;
-        uint48 ilkLastInc = ilks[_ilk].lastInc;
-        //
+        (uint256 line, uint256 lineNew) = _exec(_ilk, ilkLine, ilkTtl/2, ilkCtl, ilkLast, ilkGap);
 
-        // Return if there was already an update in the same block
-        if (ilkLast == block.number) return line;
-
-        // Calculate collateral debt
-        uint256 debt = mul(Art, rate);
-
-        uint256 ilkGap  = ilks[_ilk].gap;
-
-        // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
-        uint256 lineNew = min(add(debt, ilkGap), ilkLine);
-
-        // Short-circuit if there wasn't an update or if the time since last increment has not passed
-        if (lineNew == line || lineNew > line && block.timestamp < add(ilkLastInc, ilkTtl)) return line;
-
-        // Set collateral debt ceiling
-        vat.file(_ilk, "line", lineNew);
-        // Set general debt ceiling
-        vat.file("Line", add(sub(vat.Line(), line), lineNew));
-
-        // Update lastInc if it is an increment in the debt ceiling
-        // and update last whatever the update is
-        if (lineNew > line) {
-            // 1 SSTORE
-            ilks[_ilk].lastInc = uint48(block.timestamp);
-            ilks[_ilk].last    = uint48(block.number);
-            //
-        } else {
-            ilks[_ilk].last    = uint48(block.number);
-        }
+        ilks[_ilk].ctl     = ilkAtl;
+        ilks[_ilk].last    = uint48(block.number);
 
         emit Exec(_ilk, line, lineNew);
 
-        return lineNew;
+        vat.file(_ilk, "line", lineNew);
+        vat.file("Line", add(sub(vat.Line(), line), lineNew));
+
+    }
+
+    // --- Primary Functions ---
+    // @param  _ilk  The bytes32 ilk tag to adjust (ex. "ETH-A")
+    // @return       The ilk line value as uint256
+    function exec(bytes32 _ilk) external returns (uint256) {
+        uint256 ilkLine = ilks[_ilk].line;
+        require(ilkLine != 0, "DssAutoLine/no-autoline");
+
+        uint48  ilkTtl     = ilks[_ilk].ttl;
+        uint48  ilkCtl     = ilks[_ilk].ctl;
+        uint48  ilkLast    = ilks[_ilk].last;
+        uint256 ilkGap     = ilks[_ilk].gap;
+
+        (uint256 line, uint256 lineNew) = _exec(_ilk, ilkLine, ilkTtl, ilkCtl, ilkLast, ilkGap);
+
+        ilks[_ilk].ctl     = 0;
+        ilks[_ilk].last    = uint48(block.number);
+
+        emit Exec(_ilk, line, lineNew);
+
+        vat.file(_ilk, "line", lineNew);
+        vat.file("Line", add(sub(vat.Line(), line), lineNew));
+
+    }
+
+    function _exec(bytes32 ilk, uint256 ilkLine, uint48  ilkTtl, uint48  ilkCtl, uint48  ilkLast, uint256 ilkGap) private returns (uint256, uint256 lineNew) {
+
+        (uint256 Art, uint256 rate,, uint256 line,) = vat.ilks(ilk);
+
+        // Calculate collateral debt
+        uint256 debt = mul(Art, rate);
+        // Calculate new line based on the minimum between the maximum line and actual collateral debt + gap
+        lineNew = min(add(debt, ilkGap), ilkLine);
+
+        // Short-circuit if there wasn't an update or if the time since last increment has not passed
+        require(lineNew != line, "DssAutoLine/no-update");
+        require(lineNew <= line || block.number >= add(ilkLast, ilkTtl), "DssAutoLine/not-authorized");
+        require(lineNew >= line || block.number >= add(ilkLast, ilkCtl), "DssAutoLine/not-authorized");
     }
 }
