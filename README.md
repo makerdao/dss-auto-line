@@ -2,26 +2,26 @@
 
 Automatic debt ceiling adjustments
 
-## overview
+## Overview
 
 Minting too much DAI, even if well above collateralization ratios, can become too risky. Hence the *Debt Ceiling*, i.e. the maximum amount of DAI that can be minted for a specific collateral type.
 
-In order to give this debt ceiling more flexibility, this Instant Access Module allows the broader community to adjust the debt ceiling within fixed parameters set forth by tokenholders.
+In order to give the debt ceiling more flexibility, this Instant Access Module allows the broader community to adjust the debt ceiling within fixed parameters set forth by tohen holders.
 
-[MIP27](https://forum.makerdao.com/t/mip27-debt-ceiling-instant-access-module) describes this behavior with more detail.
+Check out [MIP27](https://forum.makerdao.com/t/mip27-debt-ceiling-instant-access-module) for more details and discussions.
 
-## command-line usage
+## Command-line usage
 
 If you're interested in updating the debt ceiling of a collateral type (ETH-B in this example), follow these steps:
 
-### 1. get the contract addresses from the chainlog
+### 1. Get the contract addresses from the chainlog
 
 ```
 $ MCD_VAT=$(seth call 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F 'getAddress(bytes32)' $(seth --from-ascii MCD_VAT | seth --to-bytes32) | xargs seth --abi-decode "getAddress(bytes32)(address)")
 $ MCD_IAM_AUTO_LINE=$(seth call 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F 'getAddress(bytes32)' $(seth --from-ascii MCD_IAM_AUTO_LINE | seth --to-bytes32) | xargs seth --abi-decode "getAddress(bytes32)(address)")
 ```
 
-### 2. get the current debt ceiling from the vat
+### 2. Get the current debt ceiling from the vat
 
 ```
 $ echo "$(seth call $MCD_VAT 'ilks(bytes32)' $(seth --from-ascii ETH-B | seth --to-bytes32) | xargs seth --abi-decode "ilks(bytes32)(uint256,uint256,uint256,uint256,uint256)" | sed -n 4p) / 10 ^ 45" | bc
@@ -30,30 +30,30 @@ $ echo "$(seth call $MCD_VAT 'ilks(bytes32)' $(seth --from-ascii ETH-B | seth --
 
 This means that the current debt ceiling for ETH-B is 5,009,714 DAI.
 
-### 3. check the max debt ceiling from the auto line IAM
+### 3. Check the maximum debt ceiling from this module
 
 ```
 $ echo "$(seth call $MCD_IAM_AUTO_LINE 'ilks(bytes32)' $(seth --from-ascii ETH-B | seth --to-bytes32) | xargs seth --abi-decode "ilks(bytes32)(uint256,uint256,uint48,uint48,uint48)" | sed -n 1p) / 10 ^ 45" | bc
 6000000
 ```
 
-### 4. if the debt ceiling is going to increase, make sure enough time has passed
+### 4. If the debt ceiling is going to increase, make sure enough time has passed
 
-get the seconds elapsed since the last time the debt was increased:
+Get the seconds elapsed since the last time the debt was increased:
 
 ```
 $ echo "$(date +%s) - $(seth call $MCD_IAM_AUTO_LINE 'ilks(bytes32)' $(seth --from-ascii ETH-B | seth --to-bytes32) | xargs seth --abi-decode "ilks(bytes32)(uint256,uint256,uint48,uint48,uint48)" | sed -n 5p)" | bc
 4288088
 ```
 
-compare the above result with the minimum wait time:
+Compare the above result with the minimum wait time:
 
 ```
 $ seth call $MCD_IAM_AUTO_LINE 'ilks(bytes32)' $(seth --from-ascii ETH-B | seth --to-bytes32) | xargs seth --abi-decode "ilks(bytes32)(uint256,uint256,uint48,uint48,uint48)" | sed -n 3p
 43200
 ```
 
-### 5. update the debt ceiling
+### 5. Update the debt ceiling
 
 ```
 $ seth send --gas 80000 $MCD_IAM_AUTO_LINE 'exec(bytes32)' $(seth --from-ascii ETH-B | seth --to-bytes32)
@@ -63,14 +63,14 @@ seth-send: Waiting for transaction receipt........
 seth-send: Transaction included in block 23937434.
 ```
 
-### 6. check the new debt ceiling in the vat
+### 6. Check the new debt ceiling in the vat
 
 ```
 echo "$(seth call $MCD_VAT 'ilks(bytes32)' $(seth --from-ascii ETH-B | seth --to-bytes32) | xargs seth --abi-decode "ilks(bytes32)(uint256,uint256,uint256,uint256,uint256)" | sed -n 4p) / 10 ^ 45" | bc
 5021462
 ```
 
-## interface description
+## Interface description
 
 ### `ilks(bytes32)`
 
@@ -105,11 +105,19 @@ This function updates the debt ceiling of a collateral type. It operates as foll
 7. Update the total debt ceiling in the vat.
 8. Update `last`.
 9. If there was an increment in the debt ceiling, update `lastInc`.
-10. Emit an event.
+10. Emit a `Exec` event.
 
-## development
+### `setIlk` and `remIlk`
 
-If you are a developer and want to maintain or update this module, follow these steps:
+These two functions allow Governance to add or remove collateral types to/from this module, and to update their parameters. They can only be called by means of an executive spell.
+
+### `wards`, `rely` and `deny`
+
+These are the components of the standard authorization mechanism of DSS. They can only be updated by governance.
+
+## Development
+
+If you want to maintain or update this module, install it by following these steps:
 
 ```
 git clone https://github.com/makerdao/dss-auto-line
