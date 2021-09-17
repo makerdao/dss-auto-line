@@ -1,4 +1,5 @@
 # Debt Ceiling Instant Access Module
+![Build Status](https://github.com/makerdao/dss-auto-line/actions/workflows/.github/workflows/tests.yaml/badge.svg?branch=master)
 
 Automatic debt ceiling adjustments
 
